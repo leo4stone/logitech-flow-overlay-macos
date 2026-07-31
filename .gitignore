@@ -1,0 +1,17 @@
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Generated app and disk images
+dist/
+*.dmg
+
+# Xcode and macOS
+.DS_Store
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# Diagnostics
+InputLinkTips.log
+InputLinkTips.preview
