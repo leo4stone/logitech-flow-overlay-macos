@@ -2,3 +2,5 @@
 *.sh text eol=lf
 *.md text eol=lf
 *.plist text eol=lf
+*.png binary
+*.icns binary

@@ -15,7 +15,9 @@
 - 识别多显示器内部接缝，不会把本机跨屏移动误认为 Flow
 - Logitech 鼠标输入恢复后立即移除遮罩
 - 可选择 0.2、0.4 或 0.8 秒触发延迟
-- 菜单栏提供遮罩预览和诊断日志
+- 主界面显示实时状态，并提供遮罩预览和诊断日志
+- 可从 Dock 或菜单栏重新打开主界面
+- 系统首选语言为中文时显示中文，其他语言显示英文
 - 无网络请求、无分析统计
 
 ## 运行要求
@@ -27,12 +29,21 @@
 
 当前 DMG 面向 Apple Silicon Mac。Swift 源码不依赖第三方库。
 
+## 下载与安装
+
+从 [GitHub Releases](https://github.com/leo4stone/logitech-flow-overlay-macos/releases/latest)
+下载当前 Apple Silicon 安装包。打开 DMG，把“Logitech Flow Overlay”拖到
+“Applications”快捷方式。
+
+应用采用临时签名且未经 Apple 公证。如果首次启动被阻止，请前往“系统设置 →
+隐私与安全性”，在安全性区域选择“仍要打开”。
+
 ## 检测原理
 
 Logi Options+ 没有提供稳定的公开 Flow 状态接口。应用在以下条件同时成立时
 判断鼠标已经切换：
 
-1. Logi Options+ 正在运行。
+1. Logi Options+ 主程序或后台设备管理程序正在运行。
 2. 指针明确向桌面组合区域的外侧边缘移动。
 3. 当前 Mac 在设定的延迟时间内不再收到指针移动。
 
@@ -46,10 +57,11 @@ Logi Options+ 没有提供稳定的公开 Flow 状态接口。应用在以下条
 
 ```bash
 ./scripts/build_app.sh
-open dist/InputLinkTips.app
+open "dist/Logitech Flow Overlay.app"
 ```
 
-应用启动后仅出现在菜单栏，不显示在 Dock。
+应用启动后会显示状态主界面，并保留 Dock 与菜单栏入口。关闭主界面不会停止
+Flow 监测。
 
 ## 构建未公证 DMG
 
@@ -57,11 +69,9 @@ open dist/InputLinkTips.app
 ./scripts/build_dmg.sh
 ```
 
-生成的磁盘映像位于 `dist/`，其中包含应用、Applications 快捷方式和中文安装
-说明。
-
-应用采用临时签名且未经 Apple 公证。从网络下载后，首次启动请按住 Control
-点击应用并选择“打开”；也可以前往“系统设置 → 隐私与安全性”选择“仍要打开”。
+生成的磁盘映像位于 `dist/`。Finder 安装窗口直接显示应用、Applications
+快捷方式、拖拽方向和未经公证应用的系统放行路径，不附带额外说明文件。
+Finder 背景不能执行语言检测，因此安装提示同时显示中英文。
 
 ## 开发与验证
 
@@ -75,7 +85,7 @@ open dist/InputLinkTips.app
 ## 诊断与隐私
 
 从菜单栏选择“打开诊断日志”可查看 Flow 候选、切换、设备和遮罩窗口状态。
-日志位于 macOS 当前临时目录，文件名为 `InputLinkTips.log`。
+日志位于 macOS 当前临时目录，文件名为 `LogitechFlowOverlay.log`。
 
 应用只读取本机屏幕布局、指针位置、运行中的应用状态和 Logitech HID 元数据，
 不会向外发送或长期保存数据。

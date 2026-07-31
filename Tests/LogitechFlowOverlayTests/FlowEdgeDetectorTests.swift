@@ -1,6 +1,6 @@
 import CoreGraphics
 import XCTest
-@testable import InputLinkTips
+@testable import LogitechFlowOverlay
 
 final class FlowEdgeDetectorTests: XCTestCase {
     private let oneScreen = [CGRect(x: 0, y: 0, width: 1440, height: 900)]

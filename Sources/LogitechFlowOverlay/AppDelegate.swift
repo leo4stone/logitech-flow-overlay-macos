@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusMenuItem: NSMenuItem?
     private var edgeMenuItem: NSMenuItem?
     private var delayItems: [NSMenuItem] = []
+    private var mainWindowController: MainWindowController?
 
     private var hasSeenLogitechPointer = false
     private var flowAway = false
@@ -31,26 +32,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        NSApp.setActivationPolicy(.regular)
         DiagnosticLog.write(
             "launch screens=\(NSScreen.screens.map { NSStringFromRect($0.frame) })"
         )
         configureStatusItem()
+        configureMainWindow()
         configureDeviceMonitor()
         startCursorPolling()
         DistributedNotificationCenter.default().addObserver(
             self,
             selector: #selector(runDiagnosticPreview),
-            name: Notification.Name("io.github.leo4stone.InputLinkTips.preview"),
+            name: Notification.Name(
+                "io.github.leo4stone.LogitechFlowOverlay.preview"
+            ),
             object: nil,
             suspensionBehavior: .deliverImmediately
         )
+        mainWindowController?.present()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         pollTimer?.invalidate()
         deviceMonitor.stop()
         DistributedNotificationCenter.default().removeObserver(self)
+    }
+
+    func applicationShouldHandleReopen(
+        _ sender: NSApplication,
+        hasVisibleWindows flag: Bool
+    ) -> Bool {
+        mainWindowController?.present()
+        return true
     }
 
     private func configureDeviceMonitor() {
@@ -83,7 +96,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if FileManager.default.fileExists(atPath: DiagnosticLog.previewTriggerPath) {
             try? FileManager.default.removeItem(atPath: DiagnosticLog.previewTriggerPath)
             runDiagnosticPreview(Notification(
-                name: Notification.Name("io.github.leo4stone.InputLinkTips.preview")
+                name: Notification.Name(
+                    "io.github.leo4stone.LogitechFlowOverlay.preview"
+                )
             ))
         }
 
@@ -165,11 +180,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.button?.image = NSImage(
             systemSymbolName: "cursorarrow.motionlines",
-            accessibilityDescription: "InputLinkTips"
+            accessibilityDescription: "Logitech Flow Overlay"
         )
 
         let menu = NSMenu()
-        let status = NSMenuItem(title: "状态：正在检测…", action: nil, keyEquivalent: "")
+        let openWindow = NSMenuItem(
+            title: L10n.openMainWindow,
+            action: #selector(showMainWindow),
+            keyEquivalent: ""
+        )
+        openWindow.target = self
+        menu.addItem(openWindow)
+        menu.addItem(.separator())
+
+        let status = NSMenuItem(
+            title: L10n.detectingStatus,
+            action: nil,
+            keyEquivalent: ""
+        )
         status.isEnabled = false
         menu.addItem(status)
         statusMenuItem = status
@@ -177,7 +205,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
 
         let preview = NSMenuItem(
-            title: "预览遮罩",
+            title: L10n.previewOverlay,
             action: #selector(togglePreview),
             keyEquivalent: ""
         )
@@ -185,7 +213,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(preview)
 
         let edge = NSMenuItem(
-            title: "启用 Flow 边缘检测",
+            title: L10n.enableEdgeDetection,
             action: #selector(toggleEdgeDetection),
             keyEquivalent: ""
         )
@@ -196,7 +224,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let delayMenu = NSMenu()
         for value in [0.2, 0.4, 0.8] {
             let delayItem = NSMenuItem(
-                title: String(format: "%.1f 秒", value),
+                title: String(format: L10n.delaySecondsFormat, value),
                 action: #selector(selectDelay(_:)),
                 keyEquivalent: ""
             )
@@ -205,12 +233,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             delayMenu.addItem(delayItem)
             delayItems.append(delayItem)
         }
-        let delayRoot = NSMenuItem(title: "触发延迟", action: nil, keyEquivalent: "")
+        let delayRoot = NSMenuItem(
+            title: L10n.triggerDelay,
+            action: nil,
+            keyEquivalent: ""
+        )
         delayRoot.submenu = delayMenu
         menu.addItem(delayRoot)
 
         let diagnostic = NSMenuItem(
-            title: "打开诊断日志",
+            title: L10n.openDiagnosticLog,
             action: #selector(openDiagnosticLog),
             keyEquivalent: ""
         )
@@ -220,7 +252,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
 
         let quit = NSMenuItem(
-            title: "退出 InputLinkTips",
+            title: L10n.quitApplication,
             action: #selector(quitApplication),
             keyEquivalent: "q"
         )
@@ -232,28 +264,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updateMenu()
     }
 
+    private func configureMainWindow() {
+        let controller = MainWindowController()
+        controller.onPreview = { [weak self] in
+            self?.togglePreview()
+        }
+        controller.onOpenDiagnosticLog = { [weak self] in
+            self?.openDiagnosticLog()
+        }
+        mainWindowController = controller
+        updateMenu()
+    }
+
     private func updateMenu() {
+        let title: String
+        let detail: String
+        let symbolName: String
+
         if flowAway {
-            statusMenuItem?.title = "状态：Flow 已切换到另一台设备"
-            statusItem?.button?.image = NSImage(
-                systemSymbolName: "cursorarrow.slash",
-                accessibilityDescription: "鼠标已离开"
-            )
+            title = L10n.flowAwayTitle
+            detail = L10n.flowAwayDetail
+            symbolName = "cursorarrow.slash"
         } else if hasSeenLogitechPointer {
-            let name = connectedNames.first ?? "Logitech 鼠标"
+            let name = connectedNames.first ?? L10n.logitechMouse
             if isLogiOptionsPlusRunning {
-                statusMenuItem?.title = "状态：\(name) · Flow 监测中"
+                title = L10n.monitoringTitle(deviceName: name)
+                detail = L10n.monitoringDetail
+                symbolName = "cursorarrow.motionlines"
             } else {
-                statusMenuItem?.title = "状态：等待 Logi Options+"
+                title = L10n.waitingForOptionsTitle
+                detail = L10n.waitingForOptionsDetail
+                symbolName = "exclamationmark.triangle"
             }
-            statusItem?.button?.image = NSImage(
-                systemSymbolName: "cursorarrow.motionlines",
-                accessibilityDescription: "鼠标已连接"
-            )
         } else {
-            statusMenuItem?.title = "状态：等待 Logitech 鼠标"
+            title = L10n.waitingForMouseTitle
+            detail = L10n.waitingForMouseDetail
+            symbolName = "computermouse"
         }
 
+        statusMenuItem?.title = String(format: L10n.statusFormat, title)
+        statusItem?.button?.image = NSImage(
+            systemSymbolName: symbolName,
+            accessibilityDescription: title
+        )
+        mainWindowController?.updateStatus(
+            title: title,
+            detail: detail,
+            symbolName: symbolName
+        )
         edgeMenuItem?.state = edgeDetectionEnabled ? .on : .off
         delayItems.forEach { item in
             guard let value = item.representedObject as? Double else { return }
@@ -272,6 +330,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.updatePresentation()
             }
         }
+    }
+
+    @objc private func showMainWindow() {
+        mainWindowController?.present()
     }
 
     @objc private func toggleEdgeDetection() {
@@ -312,8 +374,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private var isLogiOptionsPlusRunning: Bool {
-        !NSRunningApplication.runningApplications(
-            withBundleIdentifier: "com.logi.optionsplus"
-        ).isEmpty
+        LogiOptionsPlusRuntime.isRunning
     }
 }

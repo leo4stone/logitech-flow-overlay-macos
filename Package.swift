@@ -3,22 +3,25 @@
 import PackageDescription
 
 let package = Package(
-    name: "InputLinkTips",
+    name: "LogitechFlowOverlay",
     platforms: [.macOS(.v13)],
     products: [
-        .executable(name: "InputLinkTips", targets: ["InputLinkTips"])
+        .executable(
+            name: "LogitechFlowOverlay",
+            targets: ["LogitechFlowOverlay"]
+        )
     ],
     targets: [
         .executableTarget(
-            name: "InputLinkTips",
+            name: "LogitechFlowOverlay",
             linkerSettings: [
                 .linkedFramework("AppKit"),
                 .linkedFramework("IOKit")
             ]
         ),
         .testTarget(
-            name: "InputLinkTipsTests",
-            dependencies: ["InputLinkTips"]
+            name: "LogitechFlowOverlayTests",
+            dependencies: ["LogitechFlowOverlay"]
         )
     ]
 )

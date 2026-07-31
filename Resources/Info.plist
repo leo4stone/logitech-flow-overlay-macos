@@ -3,25 +3,25 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDisplayName</key>
-    <string>InputLinkTips</string>
+    <string>Logitech Flow Overlay</string>
     <key>CFBundleExecutable</key>
-    <string>InputLinkTips</string>
+    <string>LogitechFlowOverlay</string>
     <key>CFBundleIdentifier</key>
-    <string>io.github.leo4stone.InputLinkTips</string>
+    <string>io.github.leo4stone.LogitechFlowOverlay</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon.icns</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>InputLinkTips</string>
+    <string>Logitech Flow Overlay</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>1.1.0</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>2</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
-    <key>LSUIElement</key>
-    <true/>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright © 2026 leo4stone. All rights reserved.</string>
 </dict>

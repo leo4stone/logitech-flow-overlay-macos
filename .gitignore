@@ -5,6 +5,8 @@
 # Generated app and disk images
 dist/
 *.dmg
+Resources/AppIcon.icns
+Resources/Artwork/DMGBackground.png
 
 # Xcode and macOS
 .DS_Store
@@ -13,5 +15,5 @@ DerivedData/
 xcuserdata/
 
 # Diagnostics
-InputLinkTips.log
-InputLinkTips.preview
+LogitechFlowOverlay.log
+LogitechFlowOverlay.preview

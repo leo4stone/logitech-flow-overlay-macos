@@ -167,7 +167,7 @@ final class OverlayController {
         let symbol = NSImageView()
         symbol.image = NSImage(
             systemSymbolName: "cursorarrow.slash",
-            accessibilityDescription: "鼠标已离开"
+            accessibilityDescription: L10n.overlayAccessibility
         )
         symbol.symbolConfiguration = NSImage.SymbolConfiguration(
             pointSize: 54,
@@ -175,12 +175,12 @@ final class OverlayController {
         )
         symbol.contentTintColor = .white
 
-        let title = NSTextField(labelWithString: "鼠标已切换到另一台设备")
+        let title = NSTextField(labelWithString: L10n.overlayTitle)
         title.font = .systemFont(ofSize: 28, weight: .semibold)
         title.textColor = .white
         title.alignment = .center
 
-        let subtitle = NSTextField(labelWithString: "Logitech Flow · 返回此设备后提示会自动消失")
+        let subtitle = NSTextField(labelWithString: L10n.overlaySubtitle)
         subtitle.font = .systemFont(ofSize: 15, weight: .medium)
         subtitle.textColor = NSColor.white.withAlphaComponent(0.72)
         subtitle.alignment = .center

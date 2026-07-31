@@ -34,6 +34,6 @@ Include:
 - Mouse model and connection type
 - Display count and arrangement
 - Selected trigger delay
-- Relevant lines from `InputLinkTips.log`
+- Relevant lines from `LogitechFlowOverlay.log`
 
 Remove any information you do not want to publish before attaching logs.

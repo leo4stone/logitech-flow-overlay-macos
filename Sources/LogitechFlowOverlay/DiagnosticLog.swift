@@ -1,14 +1,16 @@
 import Foundation
 
 enum DiagnosticLog {
-    private static let queue = DispatchQueue(label: "InputLinkTips.DiagnosticLog")
+    private static let queue = DispatchQueue(
+        label: "LogitechFlowOverlay.DiagnosticLog"
+    )
 
     static var path: String {
-        NSTemporaryDirectory() + "InputLinkTips.log"
+        NSTemporaryDirectory() + "LogitechFlowOverlay.log"
     }
 
     static var previewTriggerPath: String {
-        NSTemporaryDirectory() + "InputLinkTips.preview"
+        NSTemporaryDirectory() + "LogitechFlowOverlay.preview"
     }
 
     static func write(_ message: String) {
