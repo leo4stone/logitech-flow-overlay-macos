@@ -5,7 +5,8 @@
 An unofficial macOS menu bar utility that makes Logitech Flow handoffs visible.
 When the pointer leaves the current Mac through Flow, the app places a prominent
 glass overlay on every connected display. The overlay disappears as soon as the
-pointer returns.
+pointer returns, then a short location alert dims the desktop and reveals a
+circular highlight that follows the pointer.
 
 > This project is not affiliated with or endorsed by Logitech.
 
@@ -15,6 +16,9 @@ pointer returns.
 - Active-device detection on the left, right, top, and bottom desktop edges
 - Multi-display awareness: seams between local displays do not trigger a handoff
 - Immediate recovery when Logitech pointer input returns
+- Mouse Reconnect Location Alert with a pointer-following spotlight
+- Configurable reconnect-alert switch, screen dimming, duration, radius, and
+  edge feathering
 - Independent dark-tint transparency, system-glass intensity, and message settings
 - Native macOS full-screen glass effect without screen-recording permission
 - Dismiss button on the overlay for false positives and manual previews
@@ -57,6 +61,11 @@ The app tracks every `NSScreen` separately and creates one non-interactive overl
 window per display. Moving between two displays attached to the same Mac is not
 treated as a Flow handoff.
 
+When a real handoff returns, the app replaces the departure overlay with one
+non-interactive dimming window per display. The display containing the pointer
+gets a feathered circular cutout that follows pointer movement for the configured
+duration. Manually dismissing the departure overlay does not trigger this alert.
+
 This is a heuristic. Parking the pointer at an external display edge can
 occasionally look like a Flow handoff; increase the delay from the menu if needed.
 
@@ -82,6 +91,13 @@ separate dark tint and doesn't require screen-recording permission.
 New installations default to 20% dark-tint transparency and 80% glass effect.
 The full-screen prompt keeps its icon and message inside a centered rounded
 card, with a separate circular icon-only **X** button directly below it.
+
+**Mouse Reconnect Location Alert** is enabled by default. Its settings control
+the opacity outside the spotlight, the alert duration, the spotlight radius,
+and the width of the soft edge transition. Use **Preview Alert** to check the
+current values without performing a Flow handoff. These settings persist
+between launches. New installations use 50% screen dimming, a 2.0-second
+duration, a 100-point radius, and 4% edge feathering.
 
 ## Build an unsigned DMG
 

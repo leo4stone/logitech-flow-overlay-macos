@@ -83,9 +83,10 @@ enum L10n {
     )
     static let mainSummary = text(
         "让 Logitech Flow 的跨设备切换状态清晰可见。鼠标离开时，"
-            + "所有显示器都会显示醒目的毛玻璃遮罩。",
+            + "所有显示器都会显示醒目的毛玻璃遮罩；鼠标连回时会提示位置。",
         "Make Logitech Flow handoffs visible. When the pointer leaves, "
-            + "a prominent glass overlay appears on every display."
+            + "a prominent glass overlay appears on every display; when it "
+            + "reconnects, a location alert reveals the pointer."
     )
     static let mainClosingNote = text(
         "关闭此窗口后应用仍会继续运行。你可以通过 Dock 或菜单栏图标"
@@ -118,6 +119,41 @@ enum L10n {
     static let resetDefaultMessage = text(
         "恢复默认文字",
         "Reset Default Message"
+    )
+    static let reconnectAlertSettings = text(
+        "鼠标连回位置提醒",
+        "Mouse Reconnect Location Alert"
+    )
+    static let reconnectAlertSummary = text(
+        "鼠标连回当前设备时，短暂调暗所有屏幕，并用跟随指针的圆形亮区"
+            + "帮助定位。",
+        "When the pointer reconnects to this Mac, briefly dim every display "
+            + "and reveal a circular highlight that follows the pointer."
+    )
+    static let enableReconnectAlert = text(
+        "启用“鼠标连回位置提醒”",
+        "Enable Mouse Reconnect Location Alert"
+    )
+    static let reconnectDimOpacity = text(
+        "变暗程度",
+        "Screen Dimming"
+    )
+    static let reconnectDuration = text(
+        "持续时间",
+        "Alert Duration"
+    )
+    static let reconnectRadius = text(
+        "聚光半径",
+        "Spotlight Radius"
+    )
+    static let reconnectFeather = text(
+        "边缘羽化",
+        "Edge Feathering"
+    )
+    static let reconnectDurationValueFormat = text("%.1f 秒", "%.1f s")
+    static let previewReconnectAlert = text(
+        "预览提醒",
+        "Preview Alert"
     )
     static let dismissOverlay = text("关闭遮罩", "Dismiss Overlay")
 

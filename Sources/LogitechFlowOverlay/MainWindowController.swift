@@ -15,6 +15,10 @@ final class MainWindowController: NSWindowController {
     var onPreview: (() -> Void)?
     var onOpenDiagnosticLog: (() -> Void)?
     var onOverlaySettingsChanged: ((OverlaySettings) -> Void)?
+    var onReconnectAlertSettingsChanged: ((ReconnectAlertSettings) -> Void)?
+    var onReconnectAlertPreview: (() -> Void)?
+    var onReconnectAlertSettingsPreviewBegan: (() -> Void)?
+    var onReconnectAlertSettingsPreviewEnded: (() -> Void)?
     var onSettingsPreviewBegan: (() -> Void)?
     var onSettingsPreviewEnded: (() -> Void)?
 
@@ -42,10 +46,58 @@ final class MainWindowController: NSWindowController {
     )
     private let glassValueLabel = NSTextField(labelWithString: "")
     private let messageField = NSTextField(string: L10n.overlayTitle)
+    private let reconnectAlertCheckbox = NSButton(
+        checkboxWithTitle: L10n.enableReconnectAlert,
+        target: nil,
+        action: nil
+    )
+    private let reconnectDimSlider = TrackingSlider(
+        value: ReconnectAlertSettings.defaultDimOpacity * 100,
+        minValue: ReconnectAlertSettings.minimumDimOpacity * 100,
+        maxValue: ReconnectAlertSettings.maximumDimOpacity * 100,
+        target: nil,
+        action: nil
+    )
+    private let reconnectDimValueLabel = NSTextField(labelWithString: "")
+    private let reconnectDurationSlider = TrackingSlider(
+        value: ReconnectAlertSettings.defaultDuration,
+        minValue: ReconnectAlertSettings.minimumDuration,
+        maxValue: ReconnectAlertSettings.maximumDuration,
+        target: nil,
+        action: nil
+    )
+    private let reconnectDurationValueLabel = NSTextField(labelWithString: "")
+    private let reconnectRadiusSlider = TrackingSlider(
+        value: ReconnectAlertSettings.defaultRadius,
+        minValue: ReconnectAlertSettings.minimumRadius,
+        maxValue: ReconnectAlertSettings.maximumRadius,
+        target: nil,
+        action: nil
+    )
+    private let reconnectRadiusValueLabel = NSTextField(labelWithString: "")
+    private let reconnectFeatherSlider = TrackingSlider(
+        value: ReconnectAlertSettings.defaultFeather * 100,
+        minValue: ReconnectAlertSettings.minimumFeather * 100,
+        maxValue: ReconnectAlertSettings.maximumFeather * 100,
+        target: nil,
+        action: nil
+    )
+    private let reconnectFeatherValueLabel = NSTextField(labelWithString: "")
+    private lazy var reconnectControls: [NSControl] = [
+        reconnectDimSlider,
+        reconnectDurationSlider,
+        reconnectRadiusSlider,
+        reconnectFeatherSlider
+    ]
+    private let reconnectPreviewButton = NSButton(
+        title: L10n.previewReconnectAlert,
+        target: nil,
+        action: nil
+    )
 
     init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 660, height: 680),
+            contentRect: NSRect(x: 0, y: 0, width: 680, height: 900),
             styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
@@ -88,6 +140,18 @@ final class MainWindowController: NSWindowController {
         messageField.stringValue = settings.message
         updateTransparencyValue()
         updateGlassValue()
+    }
+
+    func updateReconnectAlertSettings(
+        _ settings: ReconnectAlertSettings
+    ) {
+        reconnectAlertCheckbox.state = settings.isEnabled ? .on : .off
+        reconnectDimSlider.doubleValue = settings.dimOpacity * 100
+        reconnectDurationSlider.doubleValue = settings.duration
+        reconnectRadiusSlider.doubleValue = settings.radius
+        reconnectFeatherSlider.doubleValue = settings.feather * 100
+        updateReconnectAlertValues()
+        updateReconnectControlsEnabled()
     }
 
     private func buildContent() {
@@ -150,6 +214,7 @@ final class MainWindowController: NSWindowController {
         ])
 
         let settingsCard = makeSettingsCard()
+        let reconnectAlertCard = makeReconnectAlertCard()
 
         let previewButton = NSButton(
             title: L10n.previewOverlay,
@@ -178,7 +243,15 @@ final class MainWindowController: NSWindowController {
         note.textColor = .tertiaryLabelColor
 
         let stack = NSStackView(
-            views: [title, subtitle, statusCard, settingsCard, buttons, note]
+            views: [
+                title,
+                subtitle,
+                statusCard,
+                settingsCard,
+                reconnectAlertCard,
+                buttons,
+                note
+            ]
         )
         stack.orientation = .vertical
         stack.alignment = .leading
@@ -186,13 +259,15 @@ final class MainWindowController: NSWindowController {
         stack.setCustomSpacing(10, after: title)
         stack.setCustomSpacing(20, after: subtitle)
         stack.setCustomSpacing(16, after: statusCard)
-        stack.setCustomSpacing(20, after: settingsCard)
+        stack.setCustomSpacing(14, after: settingsCard)
+        stack.setCustomSpacing(20, after: reconnectAlertCard)
         contentView.addSubview(stack)
 
         stack.translatesAutoresizingMaskIntoConstraints = false
         subtitle.translatesAutoresizingMaskIntoConstraints = false
         statusCard.translatesAutoresizingMaskIntoConstraints = false
         settingsCard.translatesAutoresizingMaskIntoConstraints = false
+        reconnectAlertCard.translatesAutoresizingMaskIntoConstraints = false
         note.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(
@@ -214,6 +289,7 @@ final class MainWindowController: NSWindowController {
             subtitle.widthAnchor.constraint(equalTo: stack.widthAnchor),
             statusCard.widthAnchor.constraint(equalTo: stack.widthAnchor),
             settingsCard.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            reconnectAlertCard.widthAnchor.constraint(equalTo: stack.widthAnchor),
             note.widthAnchor.constraint(equalTo: stack.widthAnchor)
         ])
     }
@@ -364,6 +440,158 @@ final class MainWindowController: NSWindowController {
         return card
     }
 
+    private func makeReconnectAlertCard() -> NSView {
+        let heading = NSTextField(
+            labelWithString: L10n.reconnectAlertSettings
+        )
+        heading.font = .systemFont(ofSize: 15, weight: .semibold)
+
+        let summary = NSTextField(
+            wrappingLabelWithString: L10n.reconnectAlertSummary
+        )
+        summary.font = .systemFont(ofSize: 11)
+        summary.textColor = .tertiaryLabelColor
+
+        reconnectAlertCheckbox.target = self
+        reconnectAlertCheckbox.action = #selector(reconnectAlertChanged)
+
+        reconnectPreviewButton.target = self
+        reconnectPreviewButton.action = #selector(previewReconnectAlert)
+        reconnectPreviewButton.bezelStyle = .rounded
+
+        let enableRow = NSStackView(
+            views: [reconnectAlertCheckbox, reconnectPreviewButton]
+        )
+        enableRow.orientation = .horizontal
+        enableRow.alignment = .centerY
+        enableRow.spacing = 12
+        enableRow.distribution = .fill
+        reconnectAlertCheckbox.setContentHuggingPriority(
+            .defaultLow,
+            for: .horizontal
+        )
+
+        let dimRow = makeReconnectSliderRow(
+            label: L10n.reconnectDimOpacity,
+            slider: reconnectDimSlider,
+            valueLabel: reconnectDimValueLabel,
+            action: #selector(reconnectDimChanged)
+        )
+        let durationRow = makeReconnectSliderRow(
+            label: L10n.reconnectDuration,
+            slider: reconnectDurationSlider,
+            valueLabel: reconnectDurationValueLabel,
+            action: #selector(reconnectDurationChanged)
+        )
+        let radiusRow = makeReconnectSliderRow(
+            label: L10n.reconnectRadius,
+            slider: reconnectRadiusSlider,
+            valueLabel: reconnectRadiusValueLabel,
+            action: #selector(reconnectRadiusChanged)
+        )
+        let featherRow = makeReconnectSliderRow(
+            label: L10n.reconnectFeather,
+            slider: reconnectFeatherSlider,
+            valueLabel: reconnectFeatherValueLabel,
+            action: #selector(reconnectFeatherChanged)
+        )
+
+        let content = NSStackView(
+            views: [
+                heading,
+                summary,
+                enableRow,
+                dimRow,
+                durationRow,
+                radiusRow,
+                featherRow
+            ]
+        )
+        content.orientation = .vertical
+        content.alignment = .leading
+        content.spacing = 9
+        content.setCustomSpacing(4, after: heading)
+        content.setCustomSpacing(12, after: summary)
+
+        let card = NSVisualEffectView()
+        card.material = .contentBackground
+        card.blendingMode = .withinWindow
+        card.state = .active
+        card.wantsLayer = true
+        card.layer?.cornerRadius = 14
+        card.addSubview(content)
+
+        content.translatesAutoresizingMaskIntoConstraints = false
+        summary.translatesAutoresizingMaskIntoConstraints = false
+        enableRow.translatesAutoresizingMaskIntoConstraints = false
+        dimRow.translatesAutoresizingMaskIntoConstraints = false
+        durationRow.translatesAutoresizingMaskIntoConstraints = false
+        radiusRow.translatesAutoresizingMaskIntoConstraints = false
+        featherRow.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            content.leadingAnchor.constraint(
+                equalTo: card.leadingAnchor,
+                constant: 20
+            ),
+            content.trailingAnchor.constraint(
+                equalTo: card.trailingAnchor,
+                constant: -20
+            ),
+            content.topAnchor.constraint(
+                equalTo: card.topAnchor,
+                constant: 16
+            ),
+            content.bottomAnchor.constraint(
+                equalTo: card.bottomAnchor,
+                constant: -16
+            ),
+            summary.widthAnchor.constraint(equalTo: content.widthAnchor),
+            enableRow.widthAnchor.constraint(equalTo: content.widthAnchor),
+            dimRow.widthAnchor.constraint(equalTo: content.widthAnchor),
+            durationRow.widthAnchor.constraint(equalTo: content.widthAnchor),
+            radiusRow.widthAnchor.constraint(equalTo: content.widthAnchor),
+            featherRow.widthAnchor.constraint(equalTo: content.widthAnchor)
+        ])
+        updateReconnectAlertValues()
+        updateReconnectControlsEnabled()
+        return card
+    }
+
+    private func makeReconnectSliderRow(
+        label title: String,
+        slider: TrackingSlider,
+        valueLabel: NSTextField,
+        action: Selector
+    ) -> NSStackView {
+        let label = NSTextField(labelWithString: title)
+        label.font = .systemFont(ofSize: 13, weight: .medium)
+        label.widthAnchor.constraint(equalToConstant: 126).isActive = true
+
+        slider.target = self
+        slider.action = action
+        slider.isContinuous = true
+        slider.onTrackingBegan = { [weak self] in
+            self?.beginReconnectAlertSettingsPreview()
+        }
+        slider.onTrackingEnded = { [weak self] in
+            self?.endReconnectAlertSettingsPreview()
+        }
+
+        valueLabel.font = .monospacedDigitSystemFont(
+            ofSize: 13,
+            weight: .medium
+        )
+        valueLabel.alignment = .right
+        valueLabel.setContentHuggingPriority(.required, for: .horizontal)
+        valueLabel.widthAnchor.constraint(equalToConstant: 58).isActive = true
+
+        let row = NSStackView(views: [label, slider, valueLabel])
+        row.orientation = .horizontal
+        row.alignment = .centerY
+        row.spacing = 12
+        return row
+    }
+
     private func notifyOverlaySettingsChanged() {
         let settings = OverlaySettings(
             transparency: transparencySlider.doubleValue / 100,
@@ -387,6 +615,43 @@ final class MainWindowController: NSWindowController {
         )
     }
 
+    private func notifyReconnectAlertSettingsChanged() {
+        onReconnectAlertSettingsChanged?(
+            ReconnectAlertSettings(
+                isEnabled: reconnectAlertCheckbox.state == .on,
+                dimOpacity: reconnectDimSlider.doubleValue / 100,
+                duration: reconnectDurationSlider.doubleValue,
+                radius: reconnectRadiusSlider.doubleValue,
+                feather: reconnectFeatherSlider.doubleValue / 100
+            )
+        )
+    }
+
+    private func updateReconnectAlertValues() {
+        reconnectDimValueLabel.stringValue = String(
+            format: "%.0f%%",
+            reconnectDimSlider.doubleValue
+        )
+        reconnectDurationValueLabel.stringValue = String(
+            format: L10n.reconnectDurationValueFormat,
+            reconnectDurationSlider.doubleValue
+        )
+        reconnectRadiusValueLabel.stringValue = String(
+            format: "%.0f pt",
+            reconnectRadiusSlider.doubleValue
+        )
+        reconnectFeatherValueLabel.stringValue = String(
+            format: "%.0f%%",
+            reconnectFeatherSlider.doubleValue
+        )
+    }
+
+    private func updateReconnectControlsEnabled() {
+        let isEnabled = reconnectAlertCheckbox.state == .on
+        reconnectControls.forEach { $0.isEnabled = isEnabled }
+        reconnectPreviewButton.isEnabled = isEnabled
+    }
+
     private func beginSettingsPreview() {
         window?.level = NSWindow.Level(
             rawValue: NSWindow.Level.screenSaver.rawValue + 1
@@ -397,6 +662,14 @@ final class MainWindowController: NSWindowController {
     private func endSettingsPreview() {
         onSettingsPreviewEnded?()
         window?.level = .normal
+    }
+
+    private func beginReconnectAlertSettingsPreview() {
+        onReconnectAlertSettingsPreviewBegan?()
+    }
+
+    private func endReconnectAlertSettingsPreview() {
+        onReconnectAlertSettingsPreviewEnded?()
     }
 
     @objc private func previewOverlay() {
@@ -420,6 +693,35 @@ final class MainWindowController: NSWindowController {
     @objc private func resetDefaultMessage() {
         messageField.stringValue = L10n.overlayTitle
         notifyOverlaySettingsChanged()
+    }
+
+    @objc private func reconnectAlertChanged() {
+        updateReconnectControlsEnabled()
+        notifyReconnectAlertSettingsChanged()
+    }
+
+    @objc private func reconnectDimChanged() {
+        updateReconnectAlertValues()
+        notifyReconnectAlertSettingsChanged()
+    }
+
+    @objc private func reconnectDurationChanged() {
+        updateReconnectAlertValues()
+        notifyReconnectAlertSettingsChanged()
+    }
+
+    @objc private func reconnectRadiusChanged() {
+        updateReconnectAlertValues()
+        notifyReconnectAlertSettingsChanged()
+    }
+
+    @objc private func reconnectFeatherChanged() {
+        updateReconnectAlertValues()
+        notifyReconnectAlertSettingsChanged()
+    }
+
+    @objc private func previewReconnectAlert() {
+        onReconnectAlertPreview?()
     }
 }
 

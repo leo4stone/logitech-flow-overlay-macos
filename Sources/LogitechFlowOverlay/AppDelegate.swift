@@ -2,6 +2,7 @@ import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let overlay = OverlayController()
+    private let reconnectAlert = ReconnectAlertController()
     private let deviceMonitor = LogitechDeviceMonitor()
     private var edgeDetector = FlowEdgeDetector(
         delay: UserDefaults.standard.object(forKey: "flowDelay") as? Double ?? 0.4
@@ -17,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var flowAway = false
     private var manualPreview = false
     private var settingsPreviewActive = false
+    private var reconnectSettingsPreviewActive = false
     private var connectedNames: [String] = []
     private var lastOptionsRunningState: Bool?
 
@@ -50,6 +52,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
+    private var savedReconnectAlertSettings: ReconnectAlertSettings {
+        let defaults = UserDefaults.standard
+        let isEnabled: Bool
+        if defaults.object(forKey: "reconnectAlertEnabled") == nil {
+            isEnabled = ReconnectAlertSettings.defaultEnabled
+        } else {
+            isEnabled = defaults.bool(forKey: "reconnectAlertEnabled")
+        }
+        let dimOpacity = defaults.object(
+            forKey: "reconnectAlertDimOpacity"
+        ) as? Double ?? ReconnectAlertSettings.defaultDimOpacity
+        let duration = defaults.object(
+            forKey: "reconnectAlertDuration"
+        ) as? Double ?? ReconnectAlertSettings.defaultDuration
+        let radius = defaults.object(
+            forKey: "reconnectAlertRadius"
+        ) as? Double ?? ReconnectAlertSettings.defaultRadius
+        let feather = defaults.object(
+            forKey: "reconnectAlertFeather"
+        ) as? Double ?? ReconnectAlertSettings.defaultFeather
+        return ReconnectAlertSettings(
+            isEnabled: isEnabled,
+            dimOpacity: dimOpacity,
+            duration: duration,
+            radius: radius,
+            feather: feather
+        )
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         overlay.updateSettings(savedOverlaySettings)
@@ -77,6 +108,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         pollTimer?.invalidate()
+        reconnectAlert.hide(animated: false)
         deviceMonitor.stop()
         DistributedNotificationCenter.default().removeObserver(self)
     }
@@ -116,6 +148,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func sampleCursor() {
+        let pointerLocation = NSEvent.mouseLocation
+        reconnectAlert.updatePointerLocation(pointerLocation)
+
         if FileManager.default.fileExists(atPath: DiagnosticLog.previewTriggerPath) {
             try? FileManager.default.removeItem(atPath: DiagnosticLog.previewTriggerPath)
             runDiagnosticPreview(Notification(
@@ -145,25 +180,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let screenFrames = NSScreen.screens.map(\.frame)
         let wasArmed = edgeDetector.isArmed
         let event = edgeDetector.observe(
-            point: NSEvent.mouseLocation,
+            point: pointerLocation,
             screens: screenFrames,
             at: ProcessInfo.processInfo.systemUptime
         )
         if !wasArmed && edgeDetector.isArmed {
             DiagnosticLog.write(
-                "flowCandidate point=\(NSStringFromPoint(NSEvent.mouseLocation))"
+                "flowCandidate point=\(NSStringFromPoint(pointerLocation))"
             )
         }
 
         switch event {
         case .leftComputer:
             DiagnosticLog.write("flowAway")
+            reconnectAlert.hide(animated: false)
             flowAway = true
             updatePresentation()
         case .returned:
-            DiagnosticLog.write("flowReturned")
-            flowAway = false
-            updatePresentation()
+            completeFlowReturn(source: "edge")
         case nil:
             break
         }
@@ -183,10 +217,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleLogitechInput() {
+        completeFlowReturn(source: "hidInput")
+    }
+
+    private func completeFlowReturn(source: String) {
         guard flowAway else { return }
+        DiagnosticLog.write("flowReturned source=\(source)")
         flowAway = false
         edgeDetector.reset()
         updatePresentation()
+
+        let settings = savedReconnectAlertSettings
+        guard settings.isEnabled else { return }
+        reconnectAlert.show(
+            at: NSEvent.mouseLocation,
+            settings: settings
+        )
     }
 
     private func updatePresentation() {
@@ -299,6 +345,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.onOverlaySettingsChanged = { [weak self] settings in
             self?.saveOverlaySettings(settings)
         }
+        controller.updateReconnectAlertSettings(savedReconnectAlertSettings)
+        controller.onReconnectAlertSettingsChanged = { [weak self] settings in
+            self?.saveReconnectAlertSettings(settings)
+        }
+        controller.onReconnectAlertPreview = { [weak self] in
+            self?.previewReconnectAlert()
+        }
+        controller.onReconnectAlertSettingsPreviewBegan = { [weak self] in
+            self?.beginReconnectAlertSettingsPreview()
+        }
+        controller.onReconnectAlertSettingsPreviewEnded = { [weak self] in
+            self?.endReconnectAlertSettingsPreview()
+        }
         controller.onSettingsPreviewBegan = { [weak self] in
             self?.settingsPreviewActive = true
             self?.updatePresentation()
@@ -375,6 +434,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func toggleActiveDeviceDetection() {
         activeDeviceDetectionEnabled.toggle()
         if !activeDeviceDetectionEnabled {
+            reconnectAlert.hide()
             flowAway = false
             edgeDetector.reset()
             updatePresentation()
@@ -404,6 +464,74 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 + " glassIntensity="
                 + String(format: "%.2f", settings.glassIntensity)
                 + " messageLength=\(settings.message.count)"
+        )
+    }
+
+    private func saveReconnectAlertSettings(
+        _ settings: ReconnectAlertSettings
+    ) {
+        let defaults = UserDefaults.standard
+        defaults.set(
+            settings.isEnabled,
+            forKey: "reconnectAlertEnabled"
+        )
+        defaults.set(
+            settings.dimOpacity,
+            forKey: "reconnectAlertDimOpacity"
+        )
+        defaults.set(
+            settings.duration,
+            forKey: "reconnectAlertDuration"
+        )
+        defaults.set(
+            settings.radius,
+            forKey: "reconnectAlertRadius"
+        )
+        defaults.set(
+            settings.feather,
+            forKey: "reconnectAlertFeather"
+        )
+        reconnectAlert.updateSettings(settings)
+        if !settings.isEnabled {
+            reconnectSettingsPreviewActive = false
+            reconnectAlert.hide()
+        }
+        DiagnosticLog.write(
+            "reconnectAlertSettings enabled=\(settings.isEnabled) "
+                + "dimOpacity="
+                + String(format: "%.2f", settings.dimOpacity)
+                + " duration="
+                + String(format: "%.2f", settings.duration)
+                + " radius="
+                + String(format: "%.0f", settings.radius)
+                + " feather="
+                + String(format: "%.2f", settings.feather)
+        )
+    }
+
+    private func beginReconnectAlertSettingsPreview() {
+        guard !reconnectSettingsPreviewActive else { return }
+        let settings = savedReconnectAlertSettings
+        guard settings.isEnabled else { return }
+        reconnectSettingsPreviewActive = true
+        reconnectAlert.showSettingsPreview(
+            at: NSEvent.mouseLocation,
+            settings: settings
+        )
+    }
+
+    private func endReconnectAlertSettingsPreview() {
+        guard reconnectSettingsPreviewActive else { return }
+        reconnectSettingsPreviewActive = false
+        reconnectAlert.hide()
+    }
+
+    private func previewReconnectAlert() {
+        let settings = savedReconnectAlertSettings
+        guard settings.isEnabled else { return }
+        reconnectAlert.show(
+            at: NSEvent.mouseLocation,
+            settings: settings
         )
     }
 

@@ -42,6 +42,28 @@ grep -q 'defaultTransparency = 0.20' \
     Sources/LogitechFlowOverlay/OverlaySettings.swift
 grep -q 'defaultGlassIntensity = 0.80' \
     Sources/LogitechFlowOverlay/OverlaySettings.swift
+grep -q 'defaultDimOpacity = 0.50' \
+    Sources/LogitechFlowOverlay/ReconnectAlertSettings.swift
+grep -q 'defaultDuration = 2.0' \
+    Sources/LogitechFlowOverlay/ReconnectAlertSettings.swift
+grep -q 'defaultRadius = 100.0' \
+    Sources/LogitechFlowOverlay/ReconnectAlertSettings.swift
+grep -q 'defaultFeather = 0.04' \
+    Sources/LogitechFlowOverlay/ReconnectAlertSettings.swift
+for reconnect_label in \
+    '"变暗程度"' \
+    '"持续时间"' \
+    '"聚光半径"' \
+    '"边缘羽化"'
+do
+    grep -q "$reconnect_label" Sources/LogitechFlowOverlay/L10n.swift
+done
+grep -q 'onReconnectAlertSettingsPreviewBegan' \
+    Sources/LogitechFlowOverlay/MainWindowController.swift
+grep -q 'onReconnectAlertSettingsPreviewEnded' \
+    Sources/LogitechFlowOverlay/MainWindowController.swift
+grep -q 'showSettingsPreview' \
+    Sources/LogitechFlowOverlay/ReconnectAlertController.swift
 grep -q 'dismissImage.isTemplate = true' \
     Sources/LogitechFlowOverlay/OverlayController.swift
 grep -q 'dismissButton.imagePosition = .imageOnly' \
