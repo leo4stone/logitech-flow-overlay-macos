@@ -15,7 +15,8 @@ pointer returns.
 - Active-device detection on the left, right, top, and bottom desktop edges
 - Multi-display awareness: seams between local displays do not trigger a handoff
 - Immediate recovery when Logitech pointer input returns
-- Custom overlay transparency and message, saved between launches
+- Independent dark-tint transparency, system-glass intensity, and message settings
+- Native macOS full-screen glass effect without screen-recording permission
 - Dismiss button on the overlay for false positives and manual previews
 - Configurable handoff delay: 0.2, 0.4, or 0.8 seconds
 - Main window with live status, preview, and diagnostics
@@ -67,11 +68,20 @@ open "dist/Logitech Flow Overlay.app"
 ```
 
 The app opens a status window and remains available from both the Dock and menu
-bar. Use **Overlay Settings** in the main window to adjust the background
-transparency or replace the message shown during a handoff. Dragging the
-transparency slider shows the real full-screen overlay behind the raised main
-window, so the tint and blur match an actual handoff. Closing the window does
-not stop active-device detection.
+bar. Use **Overlay Settings** in the main window to adjust the dark tint,
+system-glass intensity, or handoff message independently. Dragging either
+slider shows the real full-screen overlay behind the raised main window.
+Settings persist between launches. Closing the window does not stop
+active-device detection.
+
+The glass control maps the system material's visibly effective 60%–100% mask
+range onto the full 0%–100% slider with a calibrated nonlinear response.
+The midpoint maps to about 92% of the system material, matching its perceptual
+response instead of using an equal-ratio conversion. It doesn't alter the
+separate dark tint and doesn't require screen-recording permission.
+New installations default to 20% dark-tint transparency and 80% glass effect.
+The full-screen prompt keeps its icon and message inside a centered rounded
+card, with a separate circular icon-only **X** button directly below it.
 
 ## Build an unsigned DMG
 

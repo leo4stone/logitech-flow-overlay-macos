@@ -22,6 +22,47 @@ then
 fi
 grep -q '启用“当前活动设备检测”' Sources/LogitechFlowOverlay/L10n.swift
 grep -q 'Enable Active Device Detection' Sources/LogitechFlowOverlay/L10n.swift
+grep -q 'blur.blendingMode = .behindWindow' \
+    Sources/LogitechFlowOverlay/OverlayController.swift
+grep -q 'blur.material = .fullScreenUI' \
+    Sources/LogitechFlowOverlay/OverlayController.swift
+grep -q 'blur.maskImage = makeGlassMask' \
+    Sources/LogitechFlowOverlay/OverlayController.swift
+grep -q 'glassSlider' \
+    Sources/LogitechFlowOverlay/MainWindowController.swift
+grep -q 'minimumGlassIntensity = 0.0' \
+    Sources/LogitechFlowOverlay/OverlaySettings.swift
+grep -q 'maximumGlassIntensity = 1.0' \
+    Sources/LogitechFlowOverlay/OverlaySettings.swift
+grep -q 'minimumGlassMaskAlpha = 0.60' \
+    Sources/LogitechFlowOverlay/OverlaySettings.swift
+grep -q 'glassResponseExponent = 2.321928094887362' \
+    Sources/LogitechFlowOverlay/OverlaySettings.swift
+grep -q 'defaultTransparency = 0.20' \
+    Sources/LogitechFlowOverlay/OverlaySettings.swift
+grep -q 'defaultGlassIntensity = 0.80' \
+    Sources/LogitechFlowOverlay/OverlaySettings.swift
+grep -q 'dismissImage.isTemplate = true' \
+    Sources/LogitechFlowOverlay/OverlayController.swift
+grep -q 'dismissButton.imagePosition = .imageOnly' \
+    Sources/LogitechFlowOverlay/OverlayController.swift
+grep -q 'dismissButton.contentTintColor = .white' \
+    Sources/LogitechFlowOverlay/OverlayController.swift
+grep -q 'dismissButton.isBordered = false' \
+    Sources/LogitechFlowOverlay/OverlayController.swift
+if grep -q 'title: L10n.dismissOverlay' \
+    Sources/LogitechFlowOverlay/OverlayController.swift
+then
+    echo "The overlay dismiss button must be icon-only." >&2
+    exit 1
+fi
+if grep -R -n -E \
+    'blur\.alphaValue|blurAlpha|blur\.backgroundFilters|blurSlider|backgroundBlur' \
+    Sources Tests
+then
+    echo "Glass intensity must use the native material mask, not simulated blur." >&2
+    exit 1
+fi
 zsh -n \
     scripts/build_app.sh \
     scripts/build_dmg.sh \

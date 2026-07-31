@@ -2,6 +2,11 @@ import XCTest
 @testable import LogitechFlowOverlay
 
 final class OverlaySettingsTests: XCTestCase {
+    func testProductDefaults() {
+        XCTAssertEqual(OverlaySettings.defaultTransparency, 0.20)
+        XCTAssertEqual(OverlaySettings.defaultGlassIntensity, 0.80)
+    }
+
     func testTransparencyIsClampedToSupportedRange() {
         XCTAssertEqual(
             OverlaySettings(
@@ -19,21 +24,93 @@ final class OverlaySettingsTests: XCTestCase {
         )
     }
 
-    func testLowerValueReducesTintAndBlurStrength() {
+    func testTransparencyControlsOnlyTintAlpha() {
         let settings = OverlaySettings(
             transparency: 0.42,
+            glassIntensity: 0.75,
             message: "Message"
         )
 
         XCTAssertEqual(settings.tintAlpha, 0.42, accuracy: 0.0001)
-        XCTAssertEqual(settings.blurAlpha, 0.42, accuracy: 0.0001)
 
-        let clearerSettings = OverlaySettings(
+        let lighterTint = OverlaySettings(
             transparency: 0.10,
+            glassIntensity: 0.75,
             message: "Message"
         )
-        XCTAssertLessThan(clearerSettings.tintAlpha, settings.tintAlpha)
-        XCTAssertLessThan(clearerSettings.blurAlpha, settings.blurAlpha)
+        XCTAssertLessThan(lighterTint.tintAlpha, settings.tintAlpha)
+        XCTAssertEqual(
+            lighterTint.glassIntensity,
+            settings.glassIntensity,
+            accuracy: 0.0001
+        )
+    }
+
+    func testGlassIntensityIsClampedToSupportedRange() {
+        XCTAssertEqual(
+            OverlaySettings(
+                transparency: 0.42,
+                glassIntensity: -1,
+                message: "Message"
+            ).glassIntensity,
+            OverlaySettings.minimumGlassIntensity
+        )
+        XCTAssertEqual(
+            OverlaySettings(
+                transparency: 0.42,
+                glassIntensity: 2,
+                message: "Message"
+            ).glassIntensity,
+            OverlaySettings.maximumGlassIntensity
+        )
+    }
+
+    func testGlassIntensityMapsVisibleRangeAcrossFullSlider() {
+        XCTAssertEqual(
+            OverlaySettings(
+                transparency: 0.42,
+                glassIntensity: 0,
+                message: "Message"
+            ).glassMaskAlpha,
+            0.60,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            OverlaySettings(
+                transparency: 0.42,
+                glassIntensity: 0.25,
+                message: "Message"
+            ).glassMaskAlpha,
+            0.795,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            OverlaySettings(
+                transparency: 0.42,
+                glassIntensity: 0.5,
+                message: "Message"
+            ).glassMaskAlpha,
+            0.92,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            OverlaySettings(
+                transparency: 0.42,
+                glassIntensity: 0.75,
+                message: "Message"
+            ).glassMaskAlpha,
+            0.984,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            OverlaySettings(
+                transparency: 0.42,
+                glassIntensity: 1,
+                message: "Message"
+            ).glassMaskAlpha,
+            1,
+            accuracy: 0.0001
+        )
     }
 
     func testMessageIsTrimmedAndFallsBackWhenEmpty() {

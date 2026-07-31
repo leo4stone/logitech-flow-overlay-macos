@@ -37,11 +37,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let transparency = defaults.object(
             forKey: "overlayTransparency"
         ) as? Double ?? OverlaySettings.defaultTransparency
+        let glassIntensity = defaults.object(
+            forKey: "overlayGlassIntensity"
+        ) as? Double ?? OverlaySettings.defaultGlassIntensity
         let message = defaults.string(
             forKey: "overlayMessage"
         ) ?? L10n.overlayTitle
         return OverlaySettings(
             transparency: transparency,
+            glassIntensity: glassIntensity,
             message: message
         )
     }
@@ -384,6 +388,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settings.transparency,
             forKey: "overlayTransparency"
         )
+        defaults.set(
+            settings.glassIntensity,
+            forKey: "overlayGlassIntensity"
+        )
         if settings.message == L10n.overlayTitle {
             defaults.removeObject(forKey: "overlayMessage")
         } else {
@@ -393,6 +401,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DiagnosticLog.write(
             "overlaySettings transparency="
                 + String(format: "%.2f", settings.transparency)
+                + " glassIntensity="
+                + String(format: "%.2f", settings.glassIntensity)
                 + " messageLength=\(settings.message.count)"
         )
     }

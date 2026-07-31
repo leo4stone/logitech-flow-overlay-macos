@@ -32,6 +32,7 @@ final class OverlayController: NSObject {
     var onDismiss: (() -> Void)?
     private var settings = OverlaySettings(
         transparency: OverlaySettings.defaultTransparency,
+        glassIntensity: OverlaySettings.defaultGlassIntensity,
         message: L10n.overlayTitle
     )
 
@@ -54,7 +55,9 @@ final class OverlayController: NSObject {
         self.settings = settings
 
         screenPanels.forEach { item in
-            item.blur.alphaValue = CGFloat(settings.blurAlpha)
+            item.blur.maskImage = makeGlassMask(
+                alpha: settings.glassMaskAlpha
+            )
             item.tint.layer?.backgroundColor = overlayTintColor.cgColor
             item.title.stringValue = settings.message
         }
@@ -194,6 +197,24 @@ final class OverlayController: NSObject {
         )
     }
 
+    private func makeGlassMask(alpha: Double) -> NSImage? {
+        guard alpha < 1 else {
+            return nil
+        }
+
+        let image = NSImage(
+            size: NSSize(width: 2, height: 2),
+            flipped: false
+        ) { rect in
+            NSColor.white.withAlphaComponent(alpha).setFill()
+            rect.fill()
+            return true
+        }
+        image.capInsets = NSEdgeInsets()
+        image.resizingMode = .stretch
+        return image
+    }
+
     private func makeContentView(frame: CGRect) -> PanelContent {
         let root = NSView(frame: CGRect(origin: .zero, size: frame.size))
 
@@ -202,7 +223,9 @@ final class OverlayController: NSObject {
         blur.blendingMode = .behindWindow
         blur.material = .fullScreenUI
         blur.state = .active
-        blur.alphaValue = CGFloat(settings.blurAlpha)
+        blur.maskImage = makeGlassMask(
+            alpha: settings.glassMaskAlpha
+        )
         root.addSubview(blur)
 
         let tint = NSView(frame: root.bounds)
@@ -211,11 +234,11 @@ final class OverlayController: NSObject {
         tint.layer?.backgroundColor = overlayTintColor.cgColor
         root.addSubview(tint)
 
-        let stack = NSStackView()
-        stack.orientation = .vertical
-        stack.alignment = .centerX
-        stack.spacing = 14
-        stack.translatesAutoresizingMaskIntoConstraints = false
+        let promptStack = NSStackView()
+        promptStack.orientation = .vertical
+        promptStack.alignment = .centerX
+        promptStack.spacing = 14
+        promptStack.translatesAutoresizingMaskIntoConstraints = false
 
         let symbol = NSImageView()
         symbol.image = NSImage(
@@ -246,51 +269,87 @@ final class OverlayController: NSObject {
         subtitle.textColor = NSColor.white.withAlphaComponent(0.72)
         subtitle.alignment = .center
 
+        let dismissImage = NSImage(
+            systemSymbolName: "xmark",
+            accessibilityDescription: L10n.dismissOverlay
+        )?.withSymbolConfiguration(
+            NSImage.SymbolConfiguration(
+                pointSize: 18,
+                weight: .semibold
+            )
+        ) ?? NSImage()
+        dismissImage.isTemplate = true
+
         let dismissButton = NSButton(
-            title: L10n.dismissOverlay,
+            image: dismissImage,
             target: self,
             action: #selector(dismissOverlay)
         )
-        dismissButton.bezelStyle = .rounded
         dismissButton.controlSize = .large
-        dismissButton.image = NSImage(
-            systemSymbolName: "xmark",
-            accessibilityDescription: nil
-        )
-        dismissButton.imagePosition = .imageLeading
+        dismissButton.imagePosition = .imageOnly
+        dismissButton.isBordered = false
         dismissButton.contentTintColor = .white
-        dismissButton.bezelColor = NSColor.white.withAlphaComponent(0.18)
+        dismissButton.wantsLayer = true
+        dismissButton.layer?.cornerRadius = 25
+        dismissButton.layer?.backgroundColor = NSColor.black.withAlphaComponent(
+            0.32
+        ).cgColor
+        dismissButton.layer?.borderColor = NSColor.white.withAlphaComponent(
+            0.28
+        ).cgColor
+        dismissButton.layer?.borderWidth = 1
         dismissButton.keyEquivalent = "\u{1b}"
-        dismissButton.widthAnchor.constraint(
-            greaterThanOrEqualToConstant: 130
-        ).isActive = true
+        dismissButton.toolTip = L10n.dismissOverlay
+        dismissButton.setAccessibilityLabel(L10n.dismissOverlay)
+        dismissButton.widthAnchor.constraint(equalToConstant: 50).isActive = true
+        dismissButton.heightAnchor.constraint(equalToConstant: 50).isActive = true
 
-        let capsule = NSView()
-        capsule.wantsLayer = true
-        capsule.layer?.cornerRadius = 28
-        capsule.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.22).cgColor
-        capsule.translatesAutoresizingMaskIntoConstraints = false
+        let promptCard = NSView()
+        promptCard.wantsLayer = true
+        promptCard.layer?.cornerRadius = 28
+        promptCard.layer?.backgroundColor = NSColor.black.withAlphaComponent(
+            0.22
+        ).cgColor
+        promptCard.translatesAutoresizingMaskIntoConstraints = false
 
-        stack.addArrangedSubview(symbol)
-        stack.addArrangedSubview(title)
-        stack.addArrangedSubview(subtitle)
-        stack.setCustomSpacing(20, after: subtitle)
-        stack.addArrangedSubview(dismissButton)
-        capsule.addSubview(stack)
-        root.addSubview(capsule)
+        promptStack.addArrangedSubview(symbol)
+        promptStack.addArrangedSubview(title)
+        promptStack.addArrangedSubview(subtitle)
+        promptCard.addSubview(promptStack)
+
+        let overlayControls = NSStackView(
+            views: [promptCard, dismissButton]
+        )
+        overlayControls.orientation = .vertical
+        overlayControls.alignment = .centerX
+        overlayControls.spacing = 18
+        overlayControls.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(overlayControls)
 
         NSLayoutConstraint.activate([
-            capsule.centerXAnchor.constraint(equalTo: root.centerXAnchor),
-            capsule.centerYAnchor.constraint(equalTo: root.centerYAnchor),
-            capsule.widthAnchor.constraint(greaterThanOrEqualToConstant: 470),
-            capsule.widthAnchor.constraint(
+            overlayControls.centerXAnchor.constraint(equalTo: root.centerXAnchor),
+            overlayControls.centerYAnchor.constraint(equalTo: root.centerYAnchor),
+            promptCard.widthAnchor.constraint(greaterThanOrEqualToConstant: 470),
+            promptCard.widthAnchor.constraint(
                 lessThanOrEqualTo: root.widthAnchor,
                 constant: -80
             ),
-            stack.leadingAnchor.constraint(equalTo: capsule.leadingAnchor, constant: 42),
-            stack.trailingAnchor.constraint(equalTo: capsule.trailingAnchor, constant: -42),
-            stack.topAnchor.constraint(equalTo: capsule.topAnchor, constant: 30),
-            stack.bottomAnchor.constraint(equalTo: capsule.bottomAnchor, constant: -30)
+            promptStack.leadingAnchor.constraint(
+                equalTo: promptCard.leadingAnchor,
+                constant: 42
+            ),
+            promptStack.trailingAnchor.constraint(
+                equalTo: promptCard.trailingAnchor,
+                constant: -42
+            ),
+            promptStack.topAnchor.constraint(
+                equalTo: promptCard.topAnchor,
+                constant: 30
+            ),
+            promptStack.bottomAnchor.constraint(
+                equalTo: promptCard.bottomAnchor,
+                constant: -30
+            )
         ])
 
         return PanelContent(

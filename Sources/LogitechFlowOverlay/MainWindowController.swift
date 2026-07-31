@@ -33,11 +33,19 @@ final class MainWindowController: NSWindowController {
         action: nil
     )
     private let transparencyValueLabel = NSTextField(labelWithString: "")
+    private let glassSlider = TrackingSlider(
+        value: OverlaySettings.defaultGlassIntensity * 100,
+        minValue: OverlaySettings.minimumGlassIntensity * 100,
+        maxValue: OverlaySettings.maximumGlassIntensity * 100,
+        target: nil,
+        action: nil
+    )
+    private let glassValueLabel = NSTextField(labelWithString: "")
     private let messageField = NSTextField(string: L10n.overlayTitle)
 
     init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 660, height: 620),
+            contentRect: NSRect(x: 0, y: 0, width: 660, height: 680),
             styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
@@ -76,8 +84,10 @@ final class MainWindowController: NSWindowController {
 
     func updateOverlaySettings(_ settings: OverlaySettings) {
         transparencySlider.doubleValue = settings.transparency * 100
+        glassSlider.doubleValue = settings.glassIntensity * 100
         messageField.stringValue = settings.message
         updateTransparencyValue()
+        updateGlassValue()
     }
 
     private func buildContent() {
@@ -255,6 +265,43 @@ final class MainWindowController: NSWindowController {
         transparencyHelp.font = .systemFont(ofSize: 11)
         transparencyHelp.textColor = .tertiaryLabelColor
 
+        let glassLabel = NSTextField(labelWithString: L10n.glassIntensity)
+        glassLabel.font = .systemFont(ofSize: 13, weight: .medium)
+
+        glassSlider.target = self
+        glassSlider.action = #selector(glassChanged)
+        glassSlider.isContinuous = true
+        glassSlider.onTrackingBegan = { [weak self] in
+            self?.beginSettingsPreview()
+        }
+        glassSlider.onTrackingEnded = { [weak self] in
+            self?.endSettingsPreview()
+        }
+
+        glassValueLabel.font = .monospacedDigitSystemFont(
+            ofSize: 13,
+            weight: .medium
+        )
+        glassValueLabel.alignment = .right
+        glassValueLabel.setContentHuggingPriority(.required, for: .horizontal)
+        glassValueLabel.widthAnchor.constraint(
+            equalToConstant: 46
+        ).isActive = true
+        updateGlassValue()
+
+        let glassRow = NSStackView(
+            views: [glassLabel, glassSlider, glassValueLabel]
+        )
+        glassRow.orientation = .horizontal
+        glassRow.alignment = .centerY
+        glassRow.spacing = 12
+
+        let glassHelp = NSTextField(
+            labelWithString: L10n.glassIntensityHelp
+        )
+        glassHelp.font = .systemFont(ofSize: 11)
+        glassHelp.textColor = .tertiaryLabelColor
+
         let messageLabel = NSTextField(labelWithString: L10n.overlayMessage)
         messageLabel.font = .systemFont(ofSize: 13, weight: .medium)
 
@@ -280,6 +327,8 @@ final class MainWindowController: NSWindowController {
                 heading,
                 transparencyRow,
                 transparencyHelp,
+                glassRow,
+                glassHelp,
                 messageLabel,
                 messageRow
             ]
@@ -288,7 +337,8 @@ final class MainWindowController: NSWindowController {
         content.alignment = .leading
         content.spacing = 8
         content.setCustomSpacing(14, after: heading)
-        content.setCustomSpacing(14, after: transparencyHelp)
+        content.setCustomSpacing(12, after: transparencyHelp)
+        content.setCustomSpacing(14, after: glassHelp)
 
         let card = NSVisualEffectView()
         card.material = .contentBackground
@@ -300,6 +350,7 @@ final class MainWindowController: NSWindowController {
 
         content.translatesAutoresizingMaskIntoConstraints = false
         transparencyRow.translatesAutoresizingMaskIntoConstraints = false
+        glassRow.translatesAutoresizingMaskIntoConstraints = false
         messageRow.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             content.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
@@ -307,6 +358,7 @@ final class MainWindowController: NSWindowController {
             content.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
             content.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16),
             transparencyRow.widthAnchor.constraint(equalTo: content.widthAnchor),
+            glassRow.widthAnchor.constraint(equalTo: content.widthAnchor),
             messageRow.widthAnchor.constraint(equalTo: content.widthAnchor)
         ])
         return card
@@ -315,6 +367,7 @@ final class MainWindowController: NSWindowController {
     private func notifyOverlaySettingsChanged() {
         let settings = OverlaySettings(
             transparency: transparencySlider.doubleValue / 100,
+            glassIntensity: glassSlider.doubleValue / 100,
             message: messageField.stringValue
         )
         onOverlaySettingsChanged?(settings)
@@ -324,6 +377,13 @@ final class MainWindowController: NSWindowController {
         transparencyValueLabel.stringValue = String(
             format: "%.0f%%",
             transparencySlider.doubleValue
+        )
+    }
+
+    private func updateGlassValue() {
+        glassValueLabel.stringValue = String(
+            format: "%.0f%%",
+            glassSlider.doubleValue
         )
     }
 
@@ -352,6 +412,11 @@ final class MainWindowController: NSWindowController {
         notifyOverlaySettingsChanged()
     }
 
+    @objc private func glassChanged() {
+        updateGlassValue()
+        notifyOverlaySettingsChanged()
+    }
+
     @objc private func resetDefaultMessage() {
         messageField.stringValue = L10n.overlayTitle
         notifyOverlaySettingsChanged()
@@ -374,6 +439,7 @@ extension MainWindowController: NSTextFieldDelegate {
     func controlTextDidEndEditing(_ notification: Notification) {
         let settings = OverlaySettings(
             transparency: transparencySlider.doubleValue / 100,
+            glassIntensity: glassSlider.doubleValue / 100,
             message: messageField.stringValue
         )
         messageField.stringValue = settings.message

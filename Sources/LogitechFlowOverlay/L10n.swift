@@ -99,8 +99,16 @@ enum L10n {
         "Overlay Transparency"
     )
     static let overlayTransparencyHelp = text(
-        "数值越小，背景越透明、模糊越弱",
-        "Lower values make the background clearer and less blurred"
+        "仅调整深色蒙层，不改变系统毛玻璃",
+        "Adjusts only the dark tint, without changing the system glass"
+    )
+    static let glassIntensity = text(
+        "毛玻璃强度",
+        "Glass Effect"
+    )
+    static let glassIntensityHelp = text(
+        "按视觉响应非线性调整；50% 对应约 92% 系统毛玻璃",
+        "Nonlinear visual response; 50% maps to about 92% system glass"
     )
     static let overlayMessage = text("蒙层文字", "Overlay Message")
     static let overlayMessagePlaceholder = text(
