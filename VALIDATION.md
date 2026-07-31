@@ -76,5 +76,9 @@
    - 返回时离开遮罩消失，鼠标连回位置提醒同时出现；
    - 手动点击离开遮罩的 `X` 不得触发鼠标连回位置提醒；
    - 关闭“鼠标连回位置提醒”后，真实 Flow 返回不得显示变暗窗口。
+   - 鼠标处于另一台设备时，即使日志出现 `optionsPlusProbeMissing` 或稳定的
+     `optionsPlusRunning=false`，已经确认的离开状态和遮罩仍然保留；
+   - Options+ 恢复后，日志出现 `flowAwayPreserved`，鼠标返回时仍必须出现
+     `flowReturned` 和 `reconnectAlertShown`。
 
 在第 9 项没有真实设备操作证据时，只能声明自动化和启动验证通过，不能声称真实 Flow 已验证。

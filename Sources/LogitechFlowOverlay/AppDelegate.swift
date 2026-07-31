@@ -20,7 +20,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsPreviewActive = false
     private var reconnectSettingsPreviewActive = false
     private var connectedNames: [String] = []
-    private var lastOptionsRunningState: Bool?
+    private var optionsRuntimeTracker = RuntimeAvailabilityTracker(
+        unavailabilityGracePeriod: 2.0
+    )
+    private var nextOptionsRuntimeProbeAt: TimeInterval = 0
+
+    private var optionsPlusRunning: Bool {
+        optionsRuntimeTracker.isAvailable ?? false
+    }
 
     private var activeDeviceDetectionEnabled: Bool {
         get {
@@ -150,6 +157,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func sampleCursor() {
         let pointerLocation = NSEvent.mouseLocation
         reconnectAlert.updatePointerLocation(pointerLocation)
+        let timestamp = ProcessInfo.processInfo.systemUptime
 
         if FileManager.default.fileExists(atPath: DiagnosticLog.previewTriggerPath) {
             try? FileManager.default.removeItem(atPath: DiagnosticLog.previewTriggerPath)
@@ -160,19 +168,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ))
         }
 
-        let optionsRunning = isLogiOptionsPlusRunning
-        if optionsRunning != lastOptionsRunningState {
-            lastOptionsRunningState = optionsRunning
-            DiagnosticLog.write("optionsPlusRunning=\(optionsRunning)")
-        }
+        refreshOptionsRuntime(at: timestamp)
 
-        guard activeDeviceDetectionEnabled,
-              optionsRunning
-        else {
+        guard activeDeviceDetectionEnabled else {
             if flowAway {
                 flowAway = false
                 edgeDetector.reset()
                 updatePresentation()
+            }
+            return
+        }
+
+        guard optionsPlusRunning else {
+            // Runtime availability is only a health signal. Once a Flow
+            // departure is confirmed, never turn a negative process probe into
+            // a synthetic return; preserve the state until positive local
+            // pointer evidence or an explicit user action ends it.
+            if !flowAway {
+                edgeDetector.reset()
             }
             return
         }
@@ -182,7 +195,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let event = edgeDetector.observe(
             point: pointerLocation,
             screens: screenFrames,
-            at: ProcessInfo.processInfo.systemUptime
+            at: timestamp
         )
         if !wasArmed && edgeDetector.isArmed {
             DiagnosticLog.write(
@@ -201,6 +214,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case nil:
             break
         }
+    }
+
+    private func refreshOptionsRuntime(at timestamp: TimeInterval) {
+        guard timestamp >= nextOptionsRuntimeProbeAt else { return }
+        nextOptionsRuntimeProbeAt = timestamp + 0.5
+
+        let rawIsRunning = isLogiOptionsPlusRunning
+        let wasPending = optionsRuntimeTracker.isUnavailabilityPending
+        let stableChange = optionsRuntimeTracker.observe(
+            rawIsAvailable: rawIsRunning,
+            at: timestamp
+        )
+
+        if !wasPending && optionsRuntimeTracker.isUnavailabilityPending {
+            DiagnosticLog.write(
+                "optionsPlusProbeMissing flowAwayPreserved=\(flowAway)"
+            )
+        } else if wasPending,
+                  !optionsRuntimeTracker.isUnavailabilityPending,
+                  rawIsRunning
+        {
+            DiagnosticLog.write("optionsPlusProbeRecovered")
+        }
+
+        guard let stableChange else { return }
+        DiagnosticLog.write("optionsPlusRunning=\(stableChange)")
+        if !stableChange, flowAway {
+            DiagnosticLog.write("flowAwayPreserved reason=optionsPlusUnavailable")
+        }
+        updateMenu()
     }
 
     private func handleDeviceSnapshot(_ snapshot: LogitechDeviceMonitor.Snapshot) {
@@ -381,7 +424,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             symbolName = "cursorarrow.slash"
         } else if hasSeenLogitechPointer {
             let name = connectedNames.first ?? L10n.logitechMouse
-            if isLogiOptionsPlusRunning {
+            if optionsPlusRunning {
                 title = L10n.monitoringTitle(deviceName: name)
                 detail = L10n.monitoringDetail
                 symbolName = "cursorarrow.motionlines"

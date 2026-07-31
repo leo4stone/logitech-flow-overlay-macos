@@ -65,6 +65,9 @@ When a real handoff returns, the app replaces the departure overlay with one
 non-interactive dimming window per display. The display containing the pointer
 gets a feathered circular cutout that follows pointer movement for the configured
 duration. Manually dismissing the departure overlay does not trigger this alert.
+Temporary Logi Options+ process-availability gaps do not dismiss a confirmed
+departure: only positive local pointer evidence or an explicit user action ends
+the away state.
 
 This is a heuristic. Parking the pointer at an external display edge can
 occasionally look like a Flow handoff; increase the delay from the menu if needed.

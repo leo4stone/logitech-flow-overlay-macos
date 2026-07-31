@@ -49,6 +49,37 @@ final class FlowEdgeDetectorTests: XCTestCase {
         )
     }
 
+    func testLongObservationGapPreservesAwayAndSignalsReturn() {
+        var detector = FlowEdgeDetector(delay: 0.1)
+        _ = detector.observe(
+            point: CGPoint(x: 100, y: 300),
+            screens: oneScreen,
+            at: 1
+        )
+        _ = detector.observe(
+            point: CGPoint(x: 1, y: 300),
+            screens: oneScreen,
+            at: 1.1
+        )
+        XCTAssertEqual(
+            detector.observe(
+                point: CGPoint(x: 1, y: 300),
+                screens: oneScreen,
+                at: 1.21
+            ),
+            .leftComputer
+        )
+
+        XCTAssertEqual(
+            detector.observe(
+                point: CGPoint(x: 30, y: 300),
+                screens: oneScreen,
+                at: 601.21
+            ),
+            .returned
+        )
+    }
+
     func testDoesNotTriggerWhenAppStartsWithCursorAtEdge() {
         var detector = FlowEdgeDetector(delay: 0.1)
         XCTAssertNil(detector.observe(

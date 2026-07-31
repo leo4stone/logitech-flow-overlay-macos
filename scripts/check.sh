@@ -64,6 +64,12 @@ grep -q 'onReconnectAlertSettingsPreviewEnded' \
     Sources/LogitechFlowOverlay/MainWindowController.swift
 grep -q 'showSettingsPreview' \
     Sources/LogitechFlowOverlay/ReconnectAlertController.swift
+grep -q 'if !flowAway {' \
+    Sources/LogitechFlowOverlay/AppDelegate.swift
+grep -q 'flowAwayPreserved reason=optionsPlusUnavailable' \
+    Sources/LogitechFlowOverlay/AppDelegate.swift
+grep -q 'unavailabilityGracePeriod: 2.0' \
+    Sources/LogitechFlowOverlay/AppDelegate.swift
 grep -q 'dismissImage.isTemplate = true' \
     Sources/LogitechFlowOverlay/OverlayController.swift
 grep -q 'dismissButton.imagePosition = .imageOnly' \
