@@ -12,9 +12,11 @@ pointer returns.
 ## Features
 
 - Full-screen glass overlay on every connected display
-- Flow detection on the left, right, top, and bottom edges of the desktop
+- Active-device detection on the left, right, top, and bottom desktop edges
 - Multi-display awareness: seams between local displays do not trigger a handoff
 - Immediate recovery when Logitech pointer input returns
+- Custom overlay transparency and message, saved between launches
+- Dismiss button on the overlay for false positives and manual previews
 - Configurable handoff delay: 0.2, 0.4, or 0.8 seconds
 - Main window with live status, preview, and diagnostics
 - Dock and menu bar access
@@ -65,7 +67,11 @@ open "dist/Logitech Flow Overlay.app"
 ```
 
 The app opens a status window and remains available from both the Dock and menu
-bar. Closing the window does not stop Flow monitoring.
+bar. Use **Overlay Settings** in the main window to adjust the background
+transparency or replace the message shown during a handoff. Dragging the
+transparency slider shows the real full-screen overlay behind the raised main
+window, so the tint and blur match an actual handoff. Closing the window does
+not stop active-device detection.
 
 ## Build an unsigned DMG
 

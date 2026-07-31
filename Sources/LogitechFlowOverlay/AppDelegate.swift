@@ -9,17 +9,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var pollTimer: Timer?
     private var statusItem: NSStatusItem?
     private var statusMenuItem: NSMenuItem?
-    private var edgeMenuItem: NSMenuItem?
+    private var activeDeviceDetectionMenuItem: NSMenuItem?
     private var delayItems: [NSMenuItem] = []
     private var mainWindowController: MainWindowController?
 
     private var hasSeenLogitechPointer = false
     private var flowAway = false
     private var manualPreview = false
+    private var settingsPreviewActive = false
     private var connectedNames: [String] = []
     private var lastOptionsRunningState: Bool?
 
-    private var edgeDetectionEnabled: Bool {
+    private var activeDeviceDetectionEnabled: Bool {
         get {
             if UserDefaults.standard.object(forKey: "edgeDetectionEnabled") == nil {
                 return true
@@ -31,8 +32,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private var savedOverlaySettings: OverlaySettings {
+        let defaults = UserDefaults.standard
+        let transparency = defaults.object(
+            forKey: "overlayTransparency"
+        ) as? Double ?? OverlaySettings.defaultTransparency
+        let message = defaults.string(
+            forKey: "overlayMessage"
+        ) ?? L10n.overlayTitle
+        return OverlaySettings(
+            transparency: transparency,
+            message: message
+        )
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
+        overlay.updateSettings(savedOverlaySettings)
+        overlay.onDismiss = { [weak self] in
+            self?.dismissCurrentOverlay()
+        }
         DiagnosticLog.write(
             "launch screens=\(NSScreen.screens.map { NSStringFromRect($0.frame) })"
         )
@@ -108,7 +127,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DiagnosticLog.write("optionsPlusRunning=\(optionsRunning)")
         }
 
-        guard edgeDetectionEnabled,
+        guard activeDeviceDetectionEnabled,
               optionsRunning
         else {
             if flowAway {
@@ -167,7 +186,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updatePresentation() {
-        let shouldShow = flowAway || manualPreview
+        let shouldShow = flowAway || manualPreview || settingsPreviewActive
         if shouldShow {
             overlay.show()
         } else {
@@ -212,14 +231,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         preview.target = self
         menu.addItem(preview)
 
-        let edge = NSMenuItem(
-            title: L10n.enableEdgeDetection,
-            action: #selector(toggleEdgeDetection),
+        let activeDeviceDetection = NSMenuItem(
+            title: L10n.enableActiveDeviceDetection,
+            action: #selector(toggleActiveDeviceDetection),
             keyEquivalent: ""
         )
-        edge.target = self
-        menu.addItem(edge)
-        edgeMenuItem = edge
+        activeDeviceDetection.target = self
+        menu.addItem(activeDeviceDetection)
+        activeDeviceDetectionMenuItem = activeDeviceDetection
 
         let delayMenu = NSMenu()
         for value in [0.2, 0.4, 0.8] {
@@ -272,6 +291,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.onOpenDiagnosticLog = { [weak self] in
             self?.openDiagnosticLog()
         }
+        controller.updateOverlaySettings(savedOverlaySettings)
+        controller.onOverlaySettingsChanged = { [weak self] settings in
+            self?.saveOverlaySettings(settings)
+        }
+        controller.onSettingsPreviewBegan = { [weak self] in
+            self?.settingsPreviewActive = true
+            self?.updatePresentation()
+        }
+        controller.onSettingsPreviewEnded = { [weak self] in
+            self?.settingsPreviewActive = false
+            self?.updatePresentation()
+        }
         mainWindowController = controller
         updateMenu()
     }
@@ -312,7 +343,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             detail: detail,
             symbolName: symbolName
         )
-        edgeMenuItem?.state = edgeDetectionEnabled ? .on : .off
+        activeDeviceDetectionMenuItem?.state =
+            activeDeviceDetectionEnabled ? .on : .off
         delayItems.forEach { item in
             guard let value = item.representedObject as? Double else { return }
             item.state = abs(value - edgeDetector.delay) < 0.01 ? .on : .off
@@ -336,14 +368,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainWindowController?.present()
     }
 
-    @objc private func toggleEdgeDetection() {
-        edgeDetectionEnabled.toggle()
-        if !edgeDetectionEnabled {
+    @objc private func toggleActiveDeviceDetection() {
+        activeDeviceDetectionEnabled.toggle()
+        if !activeDeviceDetectionEnabled {
             flowAway = false
             edgeDetector.reset()
             updatePresentation()
         }
         updateMenu()
+    }
+
+    private func saveOverlaySettings(_ settings: OverlaySettings) {
+        let defaults = UserDefaults.standard
+        defaults.set(
+            settings.transparency,
+            forKey: "overlayTransparency"
+        )
+        if settings.message == L10n.overlayTitle {
+            defaults.removeObject(forKey: "overlayMessage")
+        } else {
+            defaults.set(settings.message, forKey: "overlayMessage")
+        }
+        overlay.updateSettings(settings)
+        DiagnosticLog.write(
+            "overlaySettings transparency="
+                + String(format: "%.2f", settings.transparency)
+                + " messageLength=\(settings.message.count)"
+        )
+    }
+
+    private func dismissCurrentOverlay() {
+        manualPreview = false
+        settingsPreviewActive = false
+        flowAway = false
+        edgeDetector.reset()
+        updatePresentation()
+        DiagnosticLog.write("overlayDismissed")
     }
 
     @objc private func selectDelay(_ sender: NSMenuItem) {

@@ -24,9 +24,9 @@ enum L10n {
     static let openMainWindow = text("打开主界面", "Open Main Window")
     static let detectingStatus = text("状态：正在检测…", "Status: Detecting…")
     static let previewOverlay = text("预览遮罩", "Preview Overlay")
-    static let enableEdgeDetection = text(
-        "启用 Flow 边缘检测",
-        "Enable Flow Edge Detection"
+    static let enableActiveDeviceDetection = text(
+        "启用“当前活动设备检测”",
+        "Enable Active Device Detection"
     )
     static let delaySecondsFormat = text("%.1f 秒", "%.1f seconds")
     static let triggerDelay = text("触发延迟", "Trigger Delay")
@@ -93,6 +93,25 @@ enum L10n {
         "Closing this window keeps monitoring active. Reopen it anytime "
             + "from the Dock or menu bar."
     )
+    static let overlaySettings = text("蒙层设置", "Overlay Settings")
+    static let overlayTransparency = text(
+        "蒙层透明度",
+        "Overlay Transparency"
+    )
+    static let overlayTransparencyHelp = text(
+        "数值越小，背景越透明、模糊越弱",
+        "Lower values make the background clearer and less blurred"
+    )
+    static let overlayMessage = text("蒙层文字", "Overlay Message")
+    static let overlayMessagePlaceholder = text(
+        "输入鼠标离开时显示的文字",
+        "Enter the message shown when the pointer leaves"
+    )
+    static let resetDefaultMessage = text(
+        "恢复默认文字",
+        "Reset Default Message"
+    )
+    static let dismissOverlay = text("关闭遮罩", "Dismiss Overlay")
 
     static let overlayAccessibility = text("鼠标已离开", "Pointer left this Mac")
     static let overlayTitle = text(

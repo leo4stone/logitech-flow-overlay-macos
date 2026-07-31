@@ -1,16 +1,42 @@
 import AppKit
 
-final class OverlayController {
+private final class OverlayPanel: NSPanel {
+    override var canBecomeKey: Bool {
+        true
+    }
+
+    override var canBecomeMain: Bool {
+        false
+    }
+}
+
+final class OverlayController: NSObject {
     private struct ScreenPanel {
         let screenID: CGDirectDisplayID
         let frame: CGRect
         let panel: NSPanel
+        let blur: NSVisualEffectView
+        let tint: NSView
+        let title: NSTextField
+    }
+
+    private struct PanelContent {
+        let root: NSView
+        let blur: NSVisualEffectView
+        let tint: NSView
+        let title: NSTextField
     }
 
     private var screenPanels: [ScreenPanel] = []
     private(set) var isVisible = false
+    var onDismiss: (() -> Void)?
+    private var settings = OverlaySettings(
+        transparency: OverlaySettings.defaultTransparency,
+        message: L10n.overlayTitle
+    )
 
-    init() {
+    override init() {
+        super.init()
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(screensChanged),
@@ -21,6 +47,20 @@ final class OverlayController {
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+    }
+
+    func updateSettings(_ settings: OverlaySettings) {
+        guard self.settings != settings else { return }
+        self.settings = settings
+
+        screenPanels.forEach { item in
+            item.blur.alphaValue = CGFloat(settings.blurAlpha)
+            item.tint.layer?.backgroundColor = overlayTintColor.cgColor
+            item.title.stringValue = settings.message
+        }
+        if isVisible {
+            logPanelState(event: "overlaySettingsChanged")
+        }
     }
 
     func show(animated: Bool = true) {
@@ -91,16 +131,15 @@ final class OverlayController {
             ] as? CGDirectDisplayID else {
                 return nil
             }
-            return ScreenPanel(
-                screenID: screenID,
-                frame: screen.frame,
-                panel: makePanel(for: screen)
-            )
+            return makeScreenPanel(for: screen, screenID: screenID)
         }
     }
 
-    private func makePanel(for screen: NSScreen) -> NSPanel {
-        let panel = NSPanel(
+    private func makeScreenPanel(
+        for screen: NSScreen,
+        screenID: CGDirectDisplayID
+    ) -> ScreenPanel {
+        let panel = OverlayPanel(
             contentRect: .zero,
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
@@ -111,7 +150,8 @@ final class OverlayController {
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = false
-        panel.ignoresMouseEvents = true
+        panel.ignoresMouseEvents = false
+        panel.becomesKeyOnlyIfNeeded = true
         panel.hidesOnDeactivate = false
         panel.canHide = false
         panel.isReleasedWhenClosed = false
@@ -122,9 +162,17 @@ final class OverlayController {
             .stationary,
             .ignoresCycle
         ]
-        panel.contentView = makeContentView(frame: screen.frame)
+        let content = makeContentView(frame: screen.frame)
+        panel.contentView = content.root
         panel.setFrame(screen.frame, display: false, animate: false)
-        return panel
+        return ScreenPanel(
+            screenID: screenID,
+            frame: screen.frame,
+            panel: panel,
+            blur: content.blur,
+            tint: content.tint,
+            title: content.title
+        )
     }
 
     private func logPanelState(event: String) {
@@ -137,7 +185,16 @@ final class OverlayController {
         DiagnosticLog.write("\(event) count=\(screenPanels.count) \(state)")
     }
 
-    private func makeContentView(frame: CGRect) -> NSView {
+    private var overlayTintColor: NSColor {
+        NSColor(
+            calibratedRed: 0.035,
+            green: 0.055,
+            blue: 0.085,
+            alpha: CGFloat(settings.tintAlpha)
+        )
+    }
+
+    private func makeContentView(frame: CGRect) -> PanelContent {
         let root = NSView(frame: CGRect(origin: .zero, size: frame.size))
 
         let blur = NSVisualEffectView(frame: root.bounds)
@@ -145,17 +202,13 @@ final class OverlayController {
         blur.blendingMode = .behindWindow
         blur.material = .fullScreenUI
         blur.state = .active
+        blur.alphaValue = CGFloat(settings.blurAlpha)
         root.addSubview(blur)
 
         let tint = NSView(frame: root.bounds)
         tint.autoresizingMask = [.width, .height]
         tint.wantsLayer = true
-        tint.layer?.backgroundColor = NSColor(
-            calibratedRed: 0.035,
-            green: 0.055,
-            blue: 0.085,
-            alpha: 0.58
-        ).cgColor
+        tint.layer?.backgroundColor = overlayTintColor.cgColor
         root.addSubview(tint)
 
         let stack = NSStackView()
@@ -175,15 +228,42 @@ final class OverlayController {
         )
         symbol.contentTintColor = .white
 
-        let title = NSTextField(labelWithString: L10n.overlayTitle)
+        let title = NSTextField(
+            wrappingLabelWithString: settings.message
+        )
         title.font = .systemFont(ofSize: 28, weight: .semibold)
         title.textColor = .white
         title.alignment = .center
+        title.maximumNumberOfLines = 3
+        title.lineBreakMode = .byWordWrapping
+        title.preferredMaxLayoutWidth = max(
+            280,
+            min(760, frame.width - 180)
+        )
 
         let subtitle = NSTextField(labelWithString: L10n.overlaySubtitle)
         subtitle.font = .systemFont(ofSize: 15, weight: .medium)
         subtitle.textColor = NSColor.white.withAlphaComponent(0.72)
         subtitle.alignment = .center
+
+        let dismissButton = NSButton(
+            title: L10n.dismissOverlay,
+            target: self,
+            action: #selector(dismissOverlay)
+        )
+        dismissButton.bezelStyle = .rounded
+        dismissButton.controlSize = .large
+        dismissButton.image = NSImage(
+            systemSymbolName: "xmark",
+            accessibilityDescription: nil
+        )
+        dismissButton.imagePosition = .imageLeading
+        dismissButton.contentTintColor = .white
+        dismissButton.bezelColor = NSColor.white.withAlphaComponent(0.18)
+        dismissButton.keyEquivalent = "\u{1b}"
+        dismissButton.widthAnchor.constraint(
+            greaterThanOrEqualToConstant: 130
+        ).isActive = true
 
         let capsule = NSView()
         capsule.wantsLayer = true
@@ -194,6 +274,8 @@ final class OverlayController {
         stack.addArrangedSubview(symbol)
         stack.addArrangedSubview(title)
         stack.addArrangedSubview(subtitle)
+        stack.setCustomSpacing(20, after: subtitle)
+        stack.addArrangedSubview(dismissButton)
         capsule.addSubview(stack)
         root.addSubview(capsule)
 
@@ -201,12 +283,25 @@ final class OverlayController {
             capsule.centerXAnchor.constraint(equalTo: root.centerXAnchor),
             capsule.centerYAnchor.constraint(equalTo: root.centerYAnchor),
             capsule.widthAnchor.constraint(greaterThanOrEqualToConstant: 470),
+            capsule.widthAnchor.constraint(
+                lessThanOrEqualTo: root.widthAnchor,
+                constant: -80
+            ),
             stack.leadingAnchor.constraint(equalTo: capsule.leadingAnchor, constant: 42),
             stack.trailingAnchor.constraint(equalTo: capsule.trailingAnchor, constant: -42),
             stack.topAnchor.constraint(equalTo: capsule.topAnchor, constant: 30),
             stack.bottomAnchor.constraint(equalTo: capsule.bottomAnchor, constant: -30)
         ])
 
-        return root
+        return PanelContent(
+            root: root,
+            blur: blur,
+            tint: tint,
+            title: title
+        )
+    }
+
+    @objc private func dismissOverlay() {
+        onDismiss?()
     }
 }
