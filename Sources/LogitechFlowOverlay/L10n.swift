@@ -150,6 +150,10 @@ enum L10n {
         "边缘羽化",
         "Edge Feathering"
     )
+    static let reconnectSpotlightColor = text(
+        "聚光颜色",
+        "Spotlight Color"
+    )
     static let reconnectDurationValueFormat = text("%.1f 秒", "%.1f s")
     static let previewReconnectAlert = text(
         "预览提醒",

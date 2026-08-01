@@ -79,12 +79,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let feather = defaults.object(
             forKey: "reconnectAlertFeather"
         ) as? Double ?? ReconnectAlertSettings.defaultFeather
+        let defaultColor = ReconnectAlertSettings.defaultSpotlightColor
+        let spotlightColor = ReconnectSpotlightColor(
+            red: defaults.object(
+                forKey: "reconnectAlertSpotlightRed"
+            ) as? Double ?? defaultColor.red,
+            green: defaults.object(
+                forKey: "reconnectAlertSpotlightGreen"
+            ) as? Double ?? defaultColor.green,
+            blue: defaults.object(
+                forKey: "reconnectAlertSpotlightBlue"
+            ) as? Double ?? defaultColor.blue,
+            alpha: defaults.object(
+                forKey: "reconnectAlertSpotlightAlpha"
+            ) as? Double ?? defaultColor.alpha
+        )
         return ReconnectAlertSettings(
             isEnabled: isEnabled,
             dimOpacity: dimOpacity,
             duration: duration,
             radius: radius,
-            feather: feather
+            feather: feather,
+            spotlightColor: spotlightColor
         )
     }
 
@@ -534,6 +550,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settings.feather,
             forKey: "reconnectAlertFeather"
         )
+        defaults.set(
+            settings.spotlightColor.red,
+            forKey: "reconnectAlertSpotlightRed"
+        )
+        defaults.set(
+            settings.spotlightColor.green,
+            forKey: "reconnectAlertSpotlightGreen"
+        )
+        defaults.set(
+            settings.spotlightColor.blue,
+            forKey: "reconnectAlertSpotlightBlue"
+        )
+        defaults.set(
+            settings.spotlightColor.alpha,
+            forKey: "reconnectAlertSpotlightAlpha"
+        )
+        defaults.removeObject(forKey: "reconnectAlertBrightnessBoost")
         reconnectAlert.updateSettings(settings)
         if !settings.isEnabled {
             reconnectSettingsPreviewActive = false
@@ -549,6 +582,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 + String(format: "%.0f", settings.radius)
                 + " feather="
                 + String(format: "%.2f", settings.feather)
+                + " spotlightColor="
+                + String(
+                    format: "%.2f,%.2f,%.2f,%.2f",
+                    settings.spotlightColor.red,
+                    settings.spotlightColor.green,
+                    settings.spotlightColor.blue,
+                    settings.spotlightColor.alpha
+                )
         )
     }
 

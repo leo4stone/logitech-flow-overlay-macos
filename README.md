@@ -17,12 +17,13 @@ circular highlight that follows the pointer.
 - Multi-display awareness: seams between local displays do not trigger a handoff
 - Immediate recovery when Logitech pointer input returns
 - Mouse Reconnect Location Alert with a pointer-following spotlight
-- Configurable reconnect-alert switch, screen dimming, duration, radius, and
-  edge feathering
+- Configurable reconnect-alert switch, screen dimming, duration, radius,
+  edge feathering, and spotlight color
 - Independent dark-tint transparency, system-glass intensity, and message settings
 - Native macOS full-screen glass effect without screen-recording permission
 - Dismiss button on the overlay for false positives and manual previews
 - Configurable handoff delay: 0.2, 0.4, or 0.8 seconds
+- Resizable, vertically scrollable main window for shorter displays
 - Main window with live status, preview, and diagnostics
 - Dock and menu bar access
 - Chinese UI when Chinese is the primary system language; English otherwise
@@ -100,7 +101,10 @@ the opacity outside the spotlight, the alert duration, the spotlight radius,
 and the width of the soft edge transition. Use **Preview Alert** to check the
 current values without performing a Flow handoff. These settings persist
 between launches. New installations use 50% screen dimming, a 2.0-second
-duration, a 100-point radius, and 4% edge feathering.
+duration, a 100-point radius, 4% edge feathering, and a translucent white
+spotlight color. The system color picker lets you choose any color and opacity;
+changes appear in the live spotlight preview. The color affects only the
+spotlight area and doesn't require screen-recording permission.
 
 ## Build an unsigned DMG
 

@@ -30,6 +30,12 @@ grep -q 'blur.maskImage = makeGlassMask' \
     Sources/LogitechFlowOverlay/OverlayController.swift
 grep -q 'glassSlider' \
     Sources/LogitechFlowOverlay/MainWindowController.swift
+grep -q '\.resizable' \
+    Sources/LogitechFlowOverlay/MainWindowController.swift
+grep -q 'scrollView.hasVerticalScroller = true' \
+    Sources/LogitechFlowOverlay/MainWindowController.swift
+grep -q 'scrollView.hasHorizontalScroller = false' \
+    Sources/LogitechFlowOverlay/MainWindowController.swift
 grep -q 'minimumGlassIntensity = 0.0' \
     Sources/LogitechFlowOverlay/OverlaySettings.swift
 grep -q 'maximumGlassIntensity = 1.0' \
@@ -50,11 +56,14 @@ grep -q 'defaultRadius = 100.0' \
     Sources/LogitechFlowOverlay/ReconnectAlertSettings.swift
 grep -q 'defaultFeather = 0.04' \
     Sources/LogitechFlowOverlay/ReconnectAlertSettings.swift
+grep -q 'alpha: 0.20' \
+    Sources/LogitechFlowOverlay/ReconnectAlertSettings.swift
 for reconnect_label in \
     '"变暗程度"' \
     '"持续时间"' \
     '"聚光半径"' \
-    '"边缘羽化"'
+    '"边缘羽化"' \
+    '"聚光颜色"'
 do
     grep -q "$reconnect_label" Sources/LogitechFlowOverlay/L10n.swift
 done

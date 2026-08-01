@@ -11,6 +11,21 @@ private final class TrackingSlider: NSSlider {
     }
 }
 
+private final class AnchoredColorWell: NSColorWell {
+    var onActivated: (() -> Void)?
+
+    override func activate(_ exclusive: Bool) {
+        super.activate(exclusive)
+        onActivated?()
+    }
+}
+
+private final class FlippedDocumentView: NSView {
+    override var isFlipped: Bool {
+        true
+    }
+}
+
 final class MainWindowController: NSWindowController {
     var onPreview: (() -> Void)?
     var onOpenDiagnosticLog: (() -> Void)?
@@ -83,11 +98,16 @@ final class MainWindowController: NSWindowController {
         action: nil
     )
     private let reconnectFeatherValueLabel = NSTextField(labelWithString: "")
+    private let reconnectSpotlightColorWell = AnchoredColorWell()
+    private let reconnectSpotlightAlphaValueLabel = NSTextField(
+        labelWithString: ""
+    )
     private lazy var reconnectControls: [NSControl] = [
         reconnectDimSlider,
         reconnectDurationSlider,
         reconnectRadiusSlider,
-        reconnectFeatherSlider
+        reconnectFeatherSlider,
+        reconnectSpotlightColorWell
     ]
     private let reconnectPreviewButton = NSButton(
         title: L10n.previewReconnectAlert,
@@ -96,18 +116,53 @@ final class MainWindowController: NSWindowController {
     )
 
     init() {
+        let preferredSize = NSSize(width: 680, height: 940)
+        let minimumSize = NSSize(width: 600, height: 500)
+        let visibleFrame = NSScreen.main?.visibleFrame
+        let initialSize = NSSize(
+            width: min(
+                preferredSize.width,
+                max(
+                    minimumSize.width,
+                    (visibleFrame?.width ?? preferredSize.width) - 40
+                )
+            ),
+            height: min(
+                preferredSize.height,
+                max(
+                    minimumSize.height,
+                    (visibleFrame?.height ?? preferredSize.height) - 40
+                )
+            )
+        )
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 680, height: 900),
-            styleMask: [.titled, .closable, .miniaturizable],
+            contentRect: NSRect(origin: .zero, size: initialSize),
+            styleMask: [
+                .titled,
+                .closable,
+                .miniaturizable,
+                .resizable
+            ],
             backing: .buffered,
             defer: false
         )
         window.title = "Logitech Flow Overlay"
         window.isReleasedWhenClosed = false
+        window.minSize = minimumSize
         window.center()
 
         super.init(window: window)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(reconnectColorPanelWillClose),
+            name: NSWindow.willCloseNotification,
+            object: NSColorPanel.shared
+        )
         buildContent()
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     @available(*, unavailable)
@@ -150,12 +205,49 @@ final class MainWindowController: NSWindowController {
         reconnectDurationSlider.doubleValue = settings.duration
         reconnectRadiusSlider.doubleValue = settings.radius
         reconnectFeatherSlider.doubleValue = settings.feather * 100
+        reconnectSpotlightColorWell.color = nsColor(
+            settings.spotlightColor
+        )
         updateReconnectAlertValues()
         updateReconnectControlsEnabled()
     }
 
     private func buildContent() {
         guard let contentView = window?.contentView else { return }
+
+        let scrollView = NSScrollView()
+        scrollView.drawsBackground = false
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.verticalScrollElasticity = .automatic
+
+        let documentView = FlippedDocumentView()
+        scrollView.documentView = documentView
+        contentView.addSubview(scrollView)
+
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        documentView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            scrollView.leadingAnchor.constraint(
+                equalTo: contentView.leadingAnchor
+            ),
+            scrollView.trailingAnchor.constraint(
+                equalTo: contentView.trailingAnchor
+            ),
+            scrollView.topAnchor.constraint(
+                equalTo: contentView.topAnchor
+            ),
+            scrollView.bottomAnchor.constraint(
+                equalTo: contentView.bottomAnchor
+            ),
+            documentView.widthAnchor.constraint(
+                equalTo: scrollView.contentView.widthAnchor
+            ),
+            documentView.heightAnchor.constraint(
+                greaterThanOrEqualTo: scrollView.contentView.heightAnchor
+            )
+        ])
 
         let title = NSTextField(labelWithString: "Logitech Flow Overlay")
         title.font = .systemFont(ofSize: 30, weight: .bold)
@@ -261,7 +353,7 @@ final class MainWindowController: NSWindowController {
         stack.setCustomSpacing(16, after: statusCard)
         stack.setCustomSpacing(14, after: settingsCard)
         stack.setCustomSpacing(20, after: reconnectAlertCard)
-        contentView.addSubview(stack)
+        documentView.addSubview(stack)
 
         stack.translatesAutoresizingMaskIntoConstraints = false
         subtitle.translatesAutoresizingMaskIntoConstraints = false
@@ -271,19 +363,19 @@ final class MainWindowController: NSWindowController {
         note.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(
-                equalTo: contentView.leadingAnchor,
+                equalTo: documentView.leadingAnchor,
                 constant: 36
             ),
             stack.trailingAnchor.constraint(
-                equalTo: contentView.trailingAnchor,
+                equalTo: documentView.trailingAnchor,
                 constant: -36
             ),
             stack.topAnchor.constraint(
-                equalTo: contentView.topAnchor,
+                equalTo: documentView.topAnchor,
                 constant: 34
             ),
             stack.bottomAnchor.constraint(
-                lessThanOrEqualTo: contentView.bottomAnchor,
+                equalTo: documentView.bottomAnchor,
                 constant: -30
             ),
             subtitle.widthAnchor.constraint(equalTo: stack.widthAnchor),
@@ -495,6 +587,7 @@ final class MainWindowController: NSWindowController {
             valueLabel: reconnectFeatherValueLabel,
             action: #selector(reconnectFeatherChanged)
         )
+        let spotlightColorRow = makeReconnectSpotlightColorRow()
 
         let content = NSStackView(
             views: [
@@ -504,7 +597,8 @@ final class MainWindowController: NSWindowController {
                 dimRow,
                 durationRow,
                 radiusRow,
-                featherRow
+                featherRow,
+                spotlightColorRow
             ]
         )
         content.orientation = .vertical
@@ -528,6 +622,7 @@ final class MainWindowController: NSWindowController {
         durationRow.translatesAutoresizingMaskIntoConstraints = false
         radiusRow.translatesAutoresizingMaskIntoConstraints = false
         featherRow.translatesAutoresizingMaskIntoConstraints = false
+        spotlightColorRow.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             content.leadingAnchor.constraint(
                 equalTo: card.leadingAnchor,
@@ -550,11 +645,68 @@ final class MainWindowController: NSWindowController {
             dimRow.widthAnchor.constraint(equalTo: content.widthAnchor),
             durationRow.widthAnchor.constraint(equalTo: content.widthAnchor),
             radiusRow.widthAnchor.constraint(equalTo: content.widthAnchor),
-            featherRow.widthAnchor.constraint(equalTo: content.widthAnchor)
+            featherRow.widthAnchor.constraint(equalTo: content.widthAnchor),
+            spotlightColorRow.widthAnchor.constraint(
+                equalTo: content.widthAnchor
+            )
         ])
         updateReconnectAlertValues()
         updateReconnectControlsEnabled()
         return card
+    }
+
+    private func makeReconnectSpotlightColorRow() -> NSStackView {
+        let label = NSTextField(
+            labelWithString: L10n.reconnectSpotlightColor
+        )
+        label.font = .systemFont(ofSize: 13, weight: .medium)
+        label.widthAnchor.constraint(equalToConstant: 126).isActive = true
+
+        let defaultColor = ReconnectAlertSettings.defaultSpotlightColor
+        reconnectSpotlightColorWell.color = nsColor(defaultColor)
+        reconnectSpotlightColorWell.colorWellStyle = .default
+        if #available(macOS 14.0, *) {
+            reconnectSpotlightColorWell.supportsAlpha = true
+        } else {
+            NSColorPanel.shared.showsAlpha = true
+        }
+        reconnectSpotlightColorWell.onActivated = { [weak self] in
+            self?.anchorReconnectColorPanel()
+        }
+        reconnectSpotlightColorWell.target = self
+        reconnectSpotlightColorWell.action =
+            #selector(reconnectSpotlightColorChanged)
+        reconnectSpotlightColorWell.isContinuous = true
+        reconnectSpotlightColorWell.setContentHuggingPriority(
+            .defaultLow,
+            for: .horizontal
+        )
+        reconnectSpotlightColorWell.heightAnchor.constraint(
+            equalToConstant: 28
+        ).isActive = true
+
+        reconnectSpotlightAlphaValueLabel.font =
+            .monospacedDigitSystemFont(ofSize: 13, weight: .medium)
+        reconnectSpotlightAlphaValueLabel.alignment = .right
+        reconnectSpotlightAlphaValueLabel.setContentHuggingPriority(
+            .required,
+            for: .horizontal
+        )
+        reconnectSpotlightAlphaValueLabel.widthAnchor.constraint(
+            equalToConstant: 58
+        ).isActive = true
+
+        let row = NSStackView(
+            views: [
+                label,
+                reconnectSpotlightColorWell,
+                reconnectSpotlightAlphaValueLabel
+            ]
+        )
+        row.orientation = .horizontal
+        row.alignment = .centerY
+        row.spacing = 12
+        return row
     }
 
     private func makeReconnectSliderRow(
@@ -622,7 +774,10 @@ final class MainWindowController: NSWindowController {
                 dimOpacity: reconnectDimSlider.doubleValue / 100,
                 duration: reconnectDurationSlider.doubleValue,
                 radius: reconnectRadiusSlider.doubleValue,
-                feather: reconnectFeatherSlider.doubleValue / 100
+                feather: reconnectFeatherSlider.doubleValue / 100,
+                spotlightColor: reconnectSpotlightColor(
+                    reconnectSpotlightColorWell.color
+                )
             )
         )
     }
@@ -643,6 +798,12 @@ final class MainWindowController: NSWindowController {
         reconnectFeatherValueLabel.stringValue = String(
             format: "%.0f%%",
             reconnectFeatherSlider.doubleValue
+        )
+        reconnectSpotlightAlphaValueLabel.stringValue = String(
+            format: "%.0f%%",
+            reconnectSpotlightColor(
+                reconnectSpotlightColorWell.color
+            ).alpha * 100
         )
     }
 
@@ -720,8 +881,95 @@ final class MainWindowController: NSWindowController {
         notifyReconnectAlertSettingsChanged()
     }
 
+    @objc private func reconnectSpotlightColorChanged() {
+        beginReconnectAlertSettingsPreview()
+        updateReconnectAlertValues()
+        notifyReconnectAlertSettingsChanged()
+    }
+
+    @objc private func reconnectColorPanelWillClose() {
+        if let parent = NSColorPanel.shared.parent {
+            parent.removeChildWindow(NSColorPanel.shared)
+        }
+        NSColorPanel.shared.level = .floating
+        endReconnectAlertSettingsPreview()
+    }
+
     @objc private func previewReconnectAlert() {
         onReconnectAlertPreview?()
+    }
+
+    private func nsColor(
+        _ color: ReconnectSpotlightColor
+    ) -> NSColor {
+        NSColor(
+            srgbRed: CGFloat(color.red),
+            green: CGFloat(color.green),
+            blue: CGFloat(color.blue),
+            alpha: CGFloat(color.alpha)
+        )
+    }
+
+    private func reconnectSpotlightColor(
+        _ color: NSColor
+    ) -> ReconnectSpotlightColor {
+        let converted = color.usingColorSpace(.sRGB)
+            ?? color.usingColorSpace(.deviceRGB)
+            ?? .white
+        return ReconnectSpotlightColor(
+            red: Double(converted.redComponent),
+            green: Double(converted.greenComponent),
+            blue: Double(converted.blueComponent),
+            alpha: Double(converted.alphaComponent)
+        )
+    }
+
+    private func anchorReconnectColorPanel() {
+        guard let mainWindow = window,
+              let colorWellWindow = reconnectSpotlightColorWell.window,
+              let screen = colorWellWindow.screen
+        else {
+            return
+        }
+
+        let panel = NSColorPanel.shared
+        panel.showsAlpha = true
+        panel.level = NSWindow.Level(
+            rawValue: NSWindow.Level.screenSaver.rawValue + 1
+        )
+
+        if panel.parent !== mainWindow {
+            panel.parent?.removeChildWindow(panel)
+            mainWindow.addChildWindow(panel, ordered: .above)
+        }
+
+        let wellRectInWindow = reconnectSpotlightColorWell.convert(
+            reconnectSpotlightColorWell.bounds,
+            to: nil
+        )
+        let wellRectOnScreen = colorWellWindow.convertToScreen(
+            wellRectInWindow
+        )
+        let visibleFrame = screen.visibleFrame
+        let panelSize = panel.frame.size
+        let spacing: CGFloat = 8
+
+        var origin = CGPoint(
+            x: wellRectOnScreen.minX,
+            y: wellRectOnScreen.minY - panelSize.height - spacing
+        )
+        if origin.y < visibleFrame.minY {
+            origin.y = wellRectOnScreen.maxY + spacing
+        }
+        origin.x = min(
+            max(origin.x, visibleFrame.minX),
+            visibleFrame.maxX - panelSize.width
+        )
+        origin.y = min(
+            max(origin.y, visibleFrame.minY),
+            visibleFrame.maxY - panelSize.height
+        )
+        panel.setFrameOrigin(origin)
     }
 }
 

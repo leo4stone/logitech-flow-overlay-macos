@@ -30,8 +30,36 @@ final class ReconnectSpotlightRenderingTests: XCTestCase {
         XCTAssertEqual(outsideAlpha, 0.80, accuracy: 0.04)
     }
 
+    func testSpotlightColorCreatesVisibleColorAtCenter() throws {
+        let image = try renderSpotlight(
+            feather: 0.25,
+            spotlightColor: NSColor(
+                srgbRed: 0.25,
+                green: 0.50,
+                blue: 1,
+                alpha: 0.40
+            )
+        )
+        guard let centerColor = image.colorAt(x: 200, y: 200) else {
+            throw RenderingError.unavailable
+        }
+
+        XCTAssertEqual(
+            centerColor.alphaComponent,
+            0.40,
+            accuracy: 0.04
+        )
+        let rgbColor = try XCTUnwrap(
+            centerColor.usingColorSpace(.deviceRGB)
+        )
+        XCTAssertEqual(rgbColor.redComponent, 0.25, accuracy: 0.04)
+        XCTAssertEqual(rgbColor.greenComponent, 0.50, accuracy: 0.04)
+        XCTAssertGreaterThan(rgbColor.blueComponent, 0.95)
+    }
+
     private func renderSpotlight(
-        feather: CGFloat
+        feather: CGFloat,
+        spotlightColor: NSColor = .clear
     ) throws -> NSBitmapImageRep {
         let view = ReconnectSpotlightView(
             frame: NSRect(x: 0, y: 0, width: 400, height: 400)
@@ -39,6 +67,7 @@ final class ReconnectSpotlightRenderingTests: XCTestCase {
         view.dimOpacity = 0.80
         view.spotlightRadius = 120
         view.feather = feather
+        view.spotlightColor = spotlightColor
         view.pointerLocation = CGPoint(x: 200, y: 200)
 
         guard let image = view.bitmapImageRepForCachingDisplay(

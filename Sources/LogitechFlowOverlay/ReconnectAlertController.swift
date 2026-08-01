@@ -29,10 +29,30 @@ final class ReconnectSpotlightView: NSView {
         }
     }
 
+    var spotlightColor = NSColor(
+        srgbRed: CGFloat(ReconnectAlertSettings.defaultSpotlightColor.red),
+        green: CGFloat(ReconnectAlertSettings.defaultSpotlightColor.green),
+        blue: CGFloat(ReconnectAlertSettings.defaultSpotlightColor.blue),
+        alpha: CGFloat(ReconnectAlertSettings.defaultSpotlightColor.alpha)
+    ) {
+        didSet {
+            needsDisplay = true
+        }
+    }
+
     var pointerLocation: CGPoint? {
         didSet {
             needsDisplay = true
         }
+    }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
 
     override var isOpaque: Bool {
@@ -64,6 +84,7 @@ final class ReconnectSpotlightView: NSView {
                 NSColor.black.withAlphaComponent(dimOpacity).cgColor
             )
             context.fillPath(using: .evenOdd)
+            drawSpotlightColor(in: context, center: pointerLocation)
             return
         }
 
@@ -93,6 +114,54 @@ final class ReconnectSpotlightView: NSView {
             endRadius: spotlightRadius,
             options: [.drawsAfterEndLocation]
         )
+        drawSpotlightColor(in: context, center: pointerLocation)
+    }
+
+    private func drawSpotlightColor(
+        in context: CGContext,
+        center: CGPoint
+    ) {
+        let alpha = spotlightColor.alphaComponent
+        guard alpha > 0.001 else { return }
+        let opaqueColor = spotlightColor.withAlphaComponent(1)
+
+        context.saveGState()
+        context.setBlendMode(.screen)
+
+        if feather <= 0.001 {
+            context.setFillColor(
+                opaqueColor.withAlphaComponent(alpha).cgColor
+            )
+            context.fillEllipse(in: spotlightRect(center: center))
+            context.restoreGState()
+            return
+        }
+
+        let colors = [
+            opaqueColor.withAlphaComponent(alpha).cgColor,
+            opaqueColor.withAlphaComponent(alpha).cgColor,
+            NSColor.clear.cgColor
+        ] as CFArray
+        let locations: [CGFloat] = [
+            0.0,
+            max(0.0, 1.0 - feather),
+            1.0
+        ]
+        if let gradient = CGGradient(
+            colorsSpace: CGColorSpaceCreateDeviceRGB(),
+            colors: colors,
+            locations: locations
+        ) {
+            context.drawRadialGradient(
+                gradient,
+                startCenter: center,
+                startRadius: 0,
+                endCenter: center,
+                endRadius: spotlightRadius,
+                options: []
+            )
+        }
+        context.restoreGState()
     }
 
     private func spotlightRect(center: CGPoint) -> CGRect {
@@ -119,7 +188,8 @@ final class ReconnectAlertController: NSObject {
         dimOpacity: ReconnectAlertSettings.defaultDimOpacity,
         duration: ReconnectAlertSettings.defaultDuration,
         radius: ReconnectAlertSettings.defaultRadius,
-        feather: ReconnectAlertSettings.defaultFeather
+        feather: ReconnectAlertSettings.defaultFeather,
+        spotlightColor: ReconnectAlertSettings.defaultSpotlightColor
     )
     private var hideWorkItem: DispatchWorkItem?
     private var pointerLocation = CGPoint.zero
@@ -170,6 +240,9 @@ final class ReconnectAlertController: NSObject {
             item.spotlightView.dimOpacity = CGFloat(settings.dimOpacity)
             item.spotlightView.spotlightRadius = CGFloat(settings.radius)
             item.spotlightView.feather = CGFloat(settings.feather)
+            item.spotlightView.spotlightColor = nsColor(
+                settings.spotlightColor
+            )
         }
     }
 
@@ -307,6 +380,7 @@ final class ReconnectAlertController: NSObject {
         spotlightView.dimOpacity = CGFloat(settings.dimOpacity)
         spotlightView.spotlightRadius = CGFloat(settings.radius)
         spotlightView.feather = CGFloat(settings.feather)
+        spotlightView.spotlightColor = nsColor(settings.spotlightColor)
         panel.contentView = spotlightView
         panel.setFrame(screen.frame, display: false, animate: false)
 
@@ -349,7 +423,27 @@ final class ReconnectAlertController: NSObject {
                 + "duration=\(String(format: "%.2f", settings.duration)) "
                 + "radius=\(String(format: "%.0f", settings.radius)) "
                 + "feather=\(String(format: "%.2f", settings.feather)) "
+                + "spotlightColor="
+                + String(
+                    format: "%.2f,%.2f,%.2f,%.2f",
+                    settings.spotlightColor.red,
+                    settings.spotlightColor.green,
+                    settings.spotlightColor.blue,
+                    settings.spotlightColor.alpha
+                )
+                + " "
                 + state
+        )
+    }
+
+    private func nsColor(
+        _ color: ReconnectSpotlightColor
+    ) -> NSColor {
+        NSColor(
+            srgbRed: CGFloat(color.red),
+            green: CGFloat(color.green),
+            blue: CGFloat(color.blue),
+            alpha: CGFloat(color.alpha)
         )
     }
 }

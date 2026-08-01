@@ -8,6 +8,15 @@ final class ReconnectAlertSettingsTests: XCTestCase {
         XCTAssertEqual(ReconnectAlertSettings.defaultDuration, 2.0)
         XCTAssertEqual(ReconnectAlertSettings.defaultRadius, 100)
         XCTAssertEqual(ReconnectAlertSettings.defaultFeather, 0.04)
+        XCTAssertEqual(
+            ReconnectAlertSettings.defaultSpotlightColor,
+            ReconnectSpotlightColor(
+                red: 1,
+                green: 1,
+                blue: 1,
+                alpha: 0.20
+            )
+        )
     }
 
     func testDimOpacityIsClampedToSupportedRange() {
@@ -54,18 +63,38 @@ final class ReconnectAlertSettingsTests: XCTestCase {
         )
     }
 
+    func testSpotlightColorComponentsAreClamped() {
+        XCTAssertEqual(
+            ReconnectSpotlightColor(
+                red: -1,
+                green: 2,
+                blue: 0.5,
+                alpha: 3
+            ),
+            ReconnectSpotlightColor(
+                red: 0,
+                green: 1,
+                blue: 0.5,
+                alpha: 1
+            )
+        )
+    }
+
     private func makeSettings(
         dimOpacity: Double = ReconnectAlertSettings.defaultDimOpacity,
         duration: Double = ReconnectAlertSettings.defaultDuration,
         radius: Double = ReconnectAlertSettings.defaultRadius,
-        feather: Double = ReconnectAlertSettings.defaultFeather
+        feather: Double = ReconnectAlertSettings.defaultFeather,
+        spotlightColor: ReconnectSpotlightColor =
+            ReconnectAlertSettings.defaultSpotlightColor
     ) -> ReconnectAlertSettings {
         ReconnectAlertSettings(
             isEnabled: true,
             dimOpacity: dimOpacity,
             duration: duration,
             radius: radius,
-            feather: feather
+            feather: feather,
+            spotlightColor: spotlightColor
         )
     }
 }
