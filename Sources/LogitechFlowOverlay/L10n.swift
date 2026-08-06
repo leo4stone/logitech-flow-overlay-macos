@@ -39,6 +39,20 @@ enum L10n {
         "Quit Logitech Flow Overlay"
     )
     static let statusFormat = text("状态：%@", "Status: %@")
+    static let activeDeviceDetectionSettings = text(
+        "当前活动设备检测",
+        "Active Device Detection"
+    )
+    static let activeDeviceDetectionSummary = text(
+        "选择鼠标通过 Flow 离开当前设备时允许触发遮罩的桌面外侧边缘。",
+        "Choose which outer desktop edges may trigger the overlay when "
+            + "the pointer leaves this Mac through Flow."
+    )
+    static let triggerEdges = text("触发边缘", "Trigger Edges")
+    static let leftEdge = text("左", "Left")
+    static let rightEdge = text("右", "Right")
+    static let topEdge = text("上", "Top")
+    static let bottomEdge = text("下", "Bottom")
 
     static let flowAwayTitle = text(
         "Flow 已切换到另一台设备",

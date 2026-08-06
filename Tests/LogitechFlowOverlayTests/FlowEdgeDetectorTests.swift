@@ -156,4 +156,79 @@ final class FlowEdgeDetectorTests: XCTestCase {
             inset: 16
         ))
     }
+
+    func testOnlySelectedEdgesAreEligible() {
+        let edgePoints: [(CGPoint, FlowTriggerEdges)] = [
+            (CGPoint(x: 1, y: 450), .left),
+            (CGPoint(x: 1439, y: 450), .right),
+            (CGPoint(x: 700, y: 1), .bottom),
+            (CGPoint(x: 700, y: 899), .top)
+        ]
+
+        for (point, edge) in edgePoints {
+            XCTAssertTrue(FlowEdgeDetector.isOnOutsideEdge(
+                point,
+                screens: oneScreen,
+                inset: 16,
+                triggerEdges: edge
+            ))
+            XCTAssertFalse(FlowEdgeDetector.isOnOutsideEdge(
+                point,
+                screens: oneScreen,
+                inset: 16,
+                triggerEdges: FlowTriggerEdges.all.subtracting(edge)
+            ))
+        }
+    }
+
+    func testDisabledEdgeDoesNotArmDetector() {
+        var detector = FlowEdgeDetector(
+            delay: 0.1,
+            triggerEdges: [.left]
+        )
+        _ = detector.observe(
+            point: CGPoint(x: 1200, y: 400),
+            screens: oneScreen,
+            at: 1
+        )
+        _ = detector.observe(
+            point: CGPoint(x: 1439, y: 400),
+            screens: oneScreen,
+            at: 1.1
+        )
+
+        XCTAssertNil(detector.observe(
+            point: CGPoint(x: 1439, y: 400),
+            screens: oneScreen,
+            at: 2
+        ))
+        XCTAssertFalse(detector.isArmed)
+    }
+
+    func testCornerUsesEnabledMovementDirection() {
+        var detector = FlowEdgeDetector(
+            delay: 0.1,
+            triggerEdges: [.top]
+        )
+        _ = detector.observe(
+            point: CGPoint(x: 20, y: 700),
+            screens: oneScreen,
+            at: 1
+        )
+        _ = detector.observe(
+            point: CGPoint(x: 1, y: 899),
+            screens: oneScreen,
+            at: 1.1
+        )
+
+        XCTAssertTrue(detector.isArmed)
+        XCTAssertEqual(
+            detector.observe(
+                point: CGPoint(x: 1, y: 899),
+                screens: oneScreen,
+                at: 1.21
+            ),
+            .leftComputer
+        )
+    }
 }

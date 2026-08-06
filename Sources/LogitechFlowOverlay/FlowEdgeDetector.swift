@@ -12,6 +12,7 @@ struct FlowEdgeDetector {
     var delay: TimeInterval
     var edgeInset: CGFloat = 16
     var movementThreshold: CGFloat = 0.75
+    var triggerEdges: FlowTriggerEdges = .all
 
     private(set) var isAway = false
     var isArmed: Bool { armedAt != nil }
@@ -21,11 +22,13 @@ struct FlowEdgeDetector {
     init(
         delay: TimeInterval,
         edgeInset: CGFloat = 16,
-        movementThreshold: CGFloat = 0.75
+        movementThreshold: CGFloat = 0.75,
+        triggerEdges: FlowTriggerEdges = .all
     ) {
         self.delay = delay
         self.edgeInset = edgeInset
         self.movementThreshold = movementThreshold
+        self.triggerEdges = triggerEdges
     }
 
     mutating func observe(
@@ -33,12 +36,13 @@ struct FlowEdgeDetector {
         screens: [CGRect],
         at timestamp: TimeInterval
     ) -> FlowEdgeEvent? {
-        let currentSide = Self.outsideEdge(
+        let currentEdges = Self.outsideEdges(
             point,
             screens: screens,
-            inset: edgeInset
+            inset: edgeInset,
+            triggerEdges: triggerEdges
         )
-        let onOutsideEdge = currentSide != nil
+        let onOutsideEdge = !currentEdges.isEmpty
 
         guard let previousPoint else {
             self.previousPoint = point
@@ -49,10 +53,11 @@ struct FlowEdgeDetector {
         let deltaY = point.y - previousPoint.y
         let moved = hypot(deltaX, deltaY)
             >= movementThreshold
-        let previousSide = Self.outsideEdge(
+        let previousEdges = Self.outsideEdges(
             previousPoint,
             screens: screens,
-            inset: edgeInset
+            inset: edgeInset,
+            triggerEdges: triggerEdges
         )
         self.previousPoint = point
 
@@ -74,11 +79,24 @@ struct FlowEdgeDetector {
         // vertically along an edge or launching with the cursor parked there must
         // not look like a Flow hand-off.
         if armedAt == nil {
-            let movedOutward = (currentSide == .left && deltaX <= -movementThreshold)
-                || (currentSide == .right && deltaX >= movementThreshold)
-                || (currentSide == .bottom && deltaY <= -movementThreshold)
-                || (currentSide == .top && deltaY >= movementThreshold)
-            if previousSide == nil && movedOutward {
+            let movedOutward =
+                (
+                    currentEdges.contains(.left)
+                        && deltaX <= -movementThreshold
+                )
+                || (
+                    currentEdges.contains(.right)
+                        && deltaX >= movementThreshold
+                )
+                || (
+                    currentEdges.contains(.bottom)
+                        && deltaY <= -movementThreshold
+                )
+                || (
+                    currentEdges.contains(.top)
+                        && deltaY >= movementThreshold
+                )
+            if previousEdges.isEmpty && movedOutward {
                 armedAt = timestamp
             }
             return nil
@@ -103,32 +121,38 @@ struct FlowEdgeDetector {
         screens: [CGRect],
         inset: CGFloat
     ) -> Bool {
-        guard let edge = outsideEdge(point, screens: screens, inset: inset)
-        else { return false }
-        return edge == .left || edge == .right
+        let edges = outsideEdges(
+            point,
+            screens: screens,
+            inset: inset,
+            triggerEdges: .all
+        )
+        return !edges.intersection([.left, .right]).isEmpty
     }
 
     static func isOnOutsideEdge(
         _ point: CGPoint,
         screens: [CGRect],
-        inset: CGFloat
+        inset: CGFloat,
+        triggerEdges: FlowTriggerEdges = .all
     ) -> Bool {
-        outsideEdge(point, screens: screens, inset: inset) != nil
+        !outsideEdges(
+            point,
+            screens: screens,
+            inset: inset,
+            triggerEdges: triggerEdges
+        ).isEmpty
     }
 
-    private enum EdgeSide {
-        case left
-        case right
-        case bottom
-        case top
-    }
-
-    private static func outsideEdge(
+    private static func outsideEdges(
         _ point: CGPoint,
         screens: [CGRect],
-        inset: CGFloat
-    ) -> EdgeSide? {
-        guard !screens.isEmpty else { return nil }
+        inset: CGFloat,
+        triggerEdges: FlowTriggerEdges
+    ) -> FlowTriggerEdges {
+        guard !screens.isEmpty else { return [] }
+
+        var result: FlowTriggerEdges = []
 
         for screen in screens where screen.insetBy(dx: -1, dy: -1).contains(point) {
             let atLeft = point.x <= screen.minX + inset
@@ -136,35 +160,35 @@ struct FlowEdgeDetector {
             let atBottom = point.y <= screen.minY + inset
             let atTop = point.y >= screen.maxY - inset
 
-            if atLeft {
+            if atLeft && triggerEdges.contains(.left) {
                 let probe = CGPoint(x: screen.minX - inset - 2, y: point.y)
                 if !screens.contains(where: { $0.contains(probe) }) {
-                    return .left
+                    result.insert(.left)
                 }
             }
 
-            if atRight {
+            if atRight && triggerEdges.contains(.right) {
                 let probe = CGPoint(x: screen.maxX + inset + 2, y: point.y)
                 if !screens.contains(where: { $0.contains(probe) }) {
-                    return .right
+                    result.insert(.right)
                 }
             }
 
-            if atBottom {
+            if atBottom && triggerEdges.contains(.bottom) {
                 let probe = CGPoint(x: point.x, y: screen.minY - inset - 2)
                 if !screens.contains(where: { $0.contains(probe) }) {
-                    return .bottom
+                    result.insert(.bottom)
                 }
             }
 
-            if atTop {
+            if atTop && triggerEdges.contains(.top) {
                 let probe = CGPoint(x: point.x, y: screen.maxY + inset + 2)
                 if !screens.contains(where: { $0.contains(probe) }) {
-                    return .top
+                    result.insert(.top)
                 }
             }
         }
 
-        return nil
+        return result
     }
 }

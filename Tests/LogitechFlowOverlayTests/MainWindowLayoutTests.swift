@@ -18,6 +18,51 @@ final class MainWindowLayoutTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(scrollView.documentView).isFlipped)
     }
 
+    func testTriggerEdgeControlsReflectSettingsAndGlobalState() throws {
+        let controller = MainWindowController()
+        controller.updateActiveDeviceDetectionSettings(
+            ActiveDeviceDetectionSettings(
+                isEnabled: true,
+                triggerEdges: [.left, .top]
+            )
+        )
+        let buttons = allButtons(in: try XCTUnwrap(
+            controller.window?.contentView
+        ))
+
+        XCTAssertEqual(
+            try button(titled: L10n.leftEdge, in: buttons).state,
+            .on
+        )
+        XCTAssertEqual(
+            try button(titled: L10n.rightEdge, in: buttons).state,
+            .off
+        )
+        XCTAssertEqual(
+            try button(titled: L10n.topEdge, in: buttons).state,
+            .on
+        )
+        XCTAssertEqual(
+            try button(titled: L10n.bottomEdge, in: buttons).state,
+            .off
+        )
+
+        controller.updateActiveDeviceDetectionSettings(
+            ActiveDeviceDetectionSettings(
+                isEnabled: false,
+                triggerEdges: .all
+            )
+        )
+        for title in [
+            L10n.leftEdge,
+            L10n.rightEdge,
+            L10n.topEdge,
+            L10n.bottomEdge
+        ] {
+            XCTAssertFalse(try button(titled: title, in: buttons).isEnabled)
+        }
+    }
+
     private func firstScrollView(in view: NSView?) -> NSScrollView? {
         guard let view else { return nil }
         if let scrollView = view as? NSScrollView {
@@ -29,5 +74,23 @@ final class MainWindowLayoutTests: XCTestCase {
             }
         }
         return nil
+    }
+
+    private func allButtons(in view: NSView) -> [NSButton] {
+        var result: [NSButton] = []
+        if let button = view as? NSButton {
+            result.append(button)
+        }
+        for subview in view.subviews {
+            result.append(contentsOf: allButtons(in: subview))
+        }
+        return result
+    }
+
+    private func button(
+        titled title: String,
+        in buttons: [NSButton]
+    ) throws -> NSButton {
+        try XCTUnwrap(buttons.first { $0.title == title })
     }
 }

@@ -29,16 +29,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         optionsRuntimeTracker.isAvailable ?? false
     }
 
-    private var activeDeviceDetectionEnabled: Bool {
-        get {
-            if UserDefaults.standard.object(forKey: "edgeDetectionEnabled") == nil {
-                return true
-            }
-            return UserDefaults.standard.bool(forKey: "edgeDetectionEnabled")
+    private var savedActiveDeviceDetectionSettings:
+        ActiveDeviceDetectionSettings {
+        let defaults = UserDefaults.standard
+        let isEnabled: Bool
+        if defaults.object(forKey: "edgeDetectionEnabled") == nil {
+            isEnabled = ActiveDeviceDetectionSettings.defaultEnabled
+        } else {
+            isEnabled = defaults.bool(forKey: "edgeDetectionEnabled")
         }
-        set {
-            UserDefaults.standard.set(newValue, forKey: "edgeDetectionEnabled")
+        let triggerEdges: FlowTriggerEdges
+        if defaults.object(forKey: "flowTriggerEdges") == nil {
+            triggerEdges =
+                ActiveDeviceDetectionSettings.defaultTriggerEdges
+        } else {
+            triggerEdges = FlowTriggerEdges(
+                rawValue: defaults.integer(forKey: "flowTriggerEdges")
+            )
         }
+        return ActiveDeviceDetectionSettings(
+            isEnabled: isEnabled,
+            triggerEdges: triggerEdges
+        )
     }
 
     private var savedOverlaySettings: OverlaySettings {
@@ -106,6 +118,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
+        edgeDetector.triggerEdges =
+            savedActiveDeviceDetectionSettings.triggerEdges
         overlay.updateSettings(savedOverlaySettings)
         overlay.onDismiss = { [weak self] in
             self?.dismissCurrentOverlay()
@@ -186,7 +200,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         refreshOptionsRuntime(at: timestamp)
 
-        guard activeDeviceDetectionEnabled else {
+        guard savedActiveDeviceDetectionSettings.isEnabled else {
             if flowAway {
                 flowAway = false
                 edgeDetector.reset()
@@ -400,6 +414,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.onOpenDiagnosticLog = { [weak self] in
             self?.openDiagnosticLog()
         }
+        controller.updateActiveDeviceDetectionSettings(
+            savedActiveDeviceDetectionSettings
+        )
+        controller.onActiveDeviceDetectionSettingsChanged = {
+            [weak self] settings in
+            self?.saveActiveDeviceDetectionSettings(settings)
+        }
         controller.updateOverlaySettings(savedOverlaySettings)
         controller.onOverlaySettingsChanged = { [weak self] settings in
             self?.saveOverlaySettings(settings)
@@ -466,7 +487,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             symbolName: symbolName
         )
         activeDeviceDetectionMenuItem?.state =
-            activeDeviceDetectionEnabled ? .on : .off
+            savedActiveDeviceDetectionSettings.isEnabled ? .on : .off
         delayItems.forEach { item in
             guard let value = item.representedObject as? Double else { return }
             item.state = abs(value - edgeDetector.delay) < 0.01 ? .on : .off
@@ -491,14 +512,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func toggleActiveDeviceDetection() {
-        activeDeviceDetectionEnabled.toggle()
-        if !activeDeviceDetectionEnabled {
+        let current = savedActiveDeviceDetectionSettings
+        saveActiveDeviceDetectionSettings(
+            ActiveDeviceDetectionSettings(
+                isEnabled: !current.isEnabled,
+                triggerEdges: current.triggerEdges
+            )
+        )
+    }
+
+    private func saveActiveDeviceDetectionSettings(
+        _ settings: ActiveDeviceDetectionSettings
+    ) {
+        let defaults = UserDefaults.standard
+        defaults.set(settings.isEnabled, forKey: "edgeDetectionEnabled")
+        defaults.set(
+            settings.triggerEdges.rawValue,
+            forKey: "flowTriggerEdges"
+        )
+        edgeDetector.triggerEdges = settings.triggerEdges
+        edgeDetector.reset()
+        if !settings.isEnabled || flowAway {
             reconnectAlert.hide()
             flowAway = false
-            edgeDetector.reset()
             updatePresentation()
+        } else {
+            updateMenu()
         }
-        updateMenu()
+        mainWindowController?.updateActiveDeviceDetectionSettings(settings)
+        DiagnosticLog.write(
+            "activeDeviceDetectionSettings enabled=\(settings.isEnabled) "
+                + "triggerEdges=\(settings.triggerEdges.rawValue)"
+        )
     }
 
     private func saveOverlaySettings(_ settings: OverlaySettings) {

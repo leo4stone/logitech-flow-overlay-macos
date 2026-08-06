@@ -22,6 +22,10 @@ then
 fi
 grep -q '启用“当前活动设备检测”' Sources/LogitechFlowOverlay/L10n.swift
 grep -q 'Enable Active Device Detection' Sources/LogitechFlowOverlay/L10n.swift
+grep -q 'static let triggerEdges = text("触发边缘", "Trigger Edges")' \
+    Sources/LogitechFlowOverlay/L10n.swift
+grep -q 'flowTriggerEdges' \
+    Sources/LogitechFlowOverlay/AppDelegate.swift
 grep -q 'blur.blendingMode = .behindWindow' \
     Sources/LogitechFlowOverlay/OverlayController.swift
 grep -q 'blur.material = .fullScreenUI' \

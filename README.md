@@ -13,7 +13,7 @@ circular highlight that follows the pointer.
 ## Features
 
 - Full-screen glass overlay on every connected display
-- Active-device detection on the left, right, top, and bottom desktop edges
+- Independently selectable left, right, top, and bottom trigger edges
 - Multi-display awareness: seams between local displays do not trigger a handoff
 - Immediate recovery when Logitech pointer input returns
 - Mouse Reconnect Location Alert with a pointer-following spotlight
@@ -86,6 +86,11 @@ system-glass intensity, or handoff message independently. Dragging either
 slider shows the real full-screen overlay behind the raised main window.
 Settings persist between launches. Closing the window does not stop
 active-device detection.
+
+**Active Device Detection** is enabled on all four outer desktop edges by
+default. Use the main window to independently enable or disable the left,
+right, top, and bottom trigger edges. Edges between displays attached to the
+same Mac remain excluded regardless of this setting.
 
 The glass control maps the system material's visibly effective 60%–100% mask
 range onto the full 0%–100% slider with a calibrated nonlinear response.

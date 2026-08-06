@@ -29,6 +29,8 @@ private final class FlippedDocumentView: NSView {
 final class MainWindowController: NSWindowController {
     var onPreview: (() -> Void)?
     var onOpenDiagnosticLog: (() -> Void)?
+    var onActiveDeviceDetectionSettingsChanged:
+        ((ActiveDeviceDetectionSettings) -> Void)?
     var onOverlaySettingsChanged: ((OverlaySettings) -> Void)?
     var onReconnectAlertSettingsChanged: ((ReconnectAlertSettings) -> Void)?
     var onReconnectAlertPreview: (() -> Void)?
@@ -44,6 +46,37 @@ final class MainWindowController: NSWindowController {
     private let statusDetailLabel = NSTextField(
         wrappingLabelWithString: L10n.mainInitialDetail
     )
+    private let activeDeviceDetectionCheckbox = NSButton(
+        checkboxWithTitle: L10n.enableActiveDeviceDetection,
+        target: nil,
+        action: nil
+    )
+    private let leftEdgeCheckbox = NSButton(
+        checkboxWithTitle: L10n.leftEdge,
+        target: nil,
+        action: nil
+    )
+    private let rightEdgeCheckbox = NSButton(
+        checkboxWithTitle: L10n.rightEdge,
+        target: nil,
+        action: nil
+    )
+    private let topEdgeCheckbox = NSButton(
+        checkboxWithTitle: L10n.topEdge,
+        target: nil,
+        action: nil
+    )
+    private let bottomEdgeCheckbox = NSButton(
+        checkboxWithTitle: L10n.bottomEdge,
+        target: nil,
+        action: nil
+    )
+    private lazy var triggerEdgeCheckboxes = [
+        leftEdgeCheckbox,
+        rightEdgeCheckbox,
+        topEdgeCheckbox,
+        bottomEdgeCheckbox
+    ]
     private let transparencySlider = TrackingSlider(
         value: OverlaySettings.defaultTransparency * 100,
         minValue: OverlaySettings.minimumTransparency * 100,
@@ -197,6 +230,22 @@ final class MainWindowController: NSWindowController {
         updateGlassValue()
     }
 
+    func updateActiveDeviceDetectionSettings(
+        _ settings: ActiveDeviceDetectionSettings
+    ) {
+        activeDeviceDetectionCheckbox.state =
+            settings.isEnabled ? .on : .off
+        leftEdgeCheckbox.state =
+            settings.triggerEdges.contains(.left) ? .on : .off
+        rightEdgeCheckbox.state =
+            settings.triggerEdges.contains(.right) ? .on : .off
+        topEdgeCheckbox.state =
+            settings.triggerEdges.contains(.top) ? .on : .off
+        bottomEdgeCheckbox.state =
+            settings.triggerEdges.contains(.bottom) ? .on : .off
+        updateActiveDeviceDetectionControlsEnabled()
+    }
+
     func updateReconnectAlertSettings(
         _ settings: ReconnectAlertSettings
     ) {
@@ -305,6 +354,8 @@ final class MainWindowController: NSWindowController {
             statusIcon.heightAnchor.constraint(equalToConstant: 42)
         ])
 
+        let activeDeviceDetectionCard =
+            makeActiveDeviceDetectionSettingsCard()
         let settingsCard = makeSettingsCard()
         let reconnectAlertCard = makeReconnectAlertCard()
 
@@ -339,6 +390,7 @@ final class MainWindowController: NSWindowController {
                 title,
                 subtitle,
                 statusCard,
+                activeDeviceDetectionCard,
                 settingsCard,
                 reconnectAlertCard,
                 buttons,
@@ -351,6 +403,7 @@ final class MainWindowController: NSWindowController {
         stack.setCustomSpacing(10, after: title)
         stack.setCustomSpacing(20, after: subtitle)
         stack.setCustomSpacing(16, after: statusCard)
+        stack.setCustomSpacing(14, after: activeDeviceDetectionCard)
         stack.setCustomSpacing(14, after: settingsCard)
         stack.setCustomSpacing(20, after: reconnectAlertCard)
         documentView.addSubview(stack)
@@ -358,6 +411,8 @@ final class MainWindowController: NSWindowController {
         stack.translatesAutoresizingMaskIntoConstraints = false
         subtitle.translatesAutoresizingMaskIntoConstraints = false
         statusCard.translatesAutoresizingMaskIntoConstraints = false
+        activeDeviceDetectionCard.translatesAutoresizingMaskIntoConstraints =
+            false
         settingsCard.translatesAutoresizingMaskIntoConstraints = false
         reconnectAlertCard.translatesAutoresizingMaskIntoConstraints = false
         note.translatesAutoresizingMaskIntoConstraints = false
@@ -380,10 +435,100 @@ final class MainWindowController: NSWindowController {
             ),
             subtitle.widthAnchor.constraint(equalTo: stack.widthAnchor),
             statusCard.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            activeDeviceDetectionCard.widthAnchor.constraint(
+                equalTo: stack.widthAnchor
+            ),
             settingsCard.widthAnchor.constraint(equalTo: stack.widthAnchor),
             reconnectAlertCard.widthAnchor.constraint(equalTo: stack.widthAnchor),
             note.widthAnchor.constraint(equalTo: stack.widthAnchor)
         ])
+    }
+
+    private func makeActiveDeviceDetectionSettingsCard() -> NSView {
+        let heading = NSTextField(
+            labelWithString: L10n.activeDeviceDetectionSettings
+        )
+        heading.font = .systemFont(ofSize: 15, weight: .semibold)
+
+        let summary = NSTextField(
+            wrappingLabelWithString: L10n.activeDeviceDetectionSummary
+        )
+        summary.font = .systemFont(ofSize: 11)
+        summary.textColor = .tertiaryLabelColor
+
+        activeDeviceDetectionCheckbox.target = self
+        activeDeviceDetectionCheckbox.action =
+            #selector(activeDeviceDetectionSettingsChanged)
+
+        triggerEdgeCheckboxes.forEach { checkbox in
+            checkbox.target = self
+            checkbox.action =
+                #selector(activeDeviceDetectionSettingsChanged)
+        }
+
+        let edgeLabel = NSTextField(labelWithString: L10n.triggerEdges)
+        edgeLabel.font = .systemFont(ofSize: 13, weight: .medium)
+        edgeLabel.widthAnchor.constraint(equalToConstant: 126).isActive = true
+
+        let edgeOptions = NSStackView(
+            views: triggerEdgeCheckboxes
+        )
+        edgeOptions.orientation = .horizontal
+        edgeOptions.alignment = .centerY
+        edgeOptions.spacing = 18
+
+        let edgeRow = NSStackView(views: [edgeLabel, edgeOptions])
+        edgeRow.orientation = .horizontal
+        edgeRow.alignment = .centerY
+        edgeRow.spacing = 12
+
+        let content = NSStackView(
+            views: [
+                heading,
+                summary,
+                activeDeviceDetectionCheckbox,
+                edgeRow
+            ]
+        )
+        content.orientation = .vertical
+        content.alignment = .leading
+        content.spacing = 9
+        content.setCustomSpacing(4, after: heading)
+        content.setCustomSpacing(12, after: summary)
+
+        let card = NSVisualEffectView()
+        card.material = .contentBackground
+        card.blendingMode = .withinWindow
+        card.state = .active
+        card.wantsLayer = true
+        card.layer?.cornerRadius = 14
+        card.addSubview(content)
+
+        content.translatesAutoresizingMaskIntoConstraints = false
+        summary.translatesAutoresizingMaskIntoConstraints = false
+        edgeRow.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            content.leadingAnchor.constraint(
+                equalTo: card.leadingAnchor,
+                constant: 20
+            ),
+            content.trailingAnchor.constraint(
+                equalTo: card.trailingAnchor,
+                constant: -20
+            ),
+            content.topAnchor.constraint(
+                equalTo: card.topAnchor,
+                constant: 16
+            ),
+            content.bottomAnchor.constraint(
+                equalTo: card.bottomAnchor,
+                constant: -16
+            ),
+            summary.widthAnchor.constraint(equalTo: content.widthAnchor),
+            edgeRow.widthAnchor.constraint(equalTo: content.widthAnchor)
+        ])
+        updateActiveDeviceDetectionControlsEnabled()
+        return card
     }
 
     private func makeSettingsCard() -> NSView {
@@ -753,6 +898,28 @@ final class MainWindowController: NSWindowController {
         onOverlaySettingsChanged?(settings)
     }
 
+    private func notifyActiveDeviceDetectionSettingsChanged() {
+        var triggerEdges: FlowTriggerEdges = []
+        if leftEdgeCheckbox.state == .on {
+            triggerEdges.insert(.left)
+        }
+        if rightEdgeCheckbox.state == .on {
+            triggerEdges.insert(.right)
+        }
+        if topEdgeCheckbox.state == .on {
+            triggerEdges.insert(.top)
+        }
+        if bottomEdgeCheckbox.state == .on {
+            triggerEdges.insert(.bottom)
+        }
+        onActiveDeviceDetectionSettingsChanged?(
+            ActiveDeviceDetectionSettings(
+                isEnabled: activeDeviceDetectionCheckbox.state == .on,
+                triggerEdges: triggerEdges
+            )
+        )
+    }
+
     private func updateTransparencyValue() {
         transparencyValueLabel.stringValue = String(
             format: "%.0f%%",
@@ -813,6 +980,11 @@ final class MainWindowController: NSWindowController {
         reconnectPreviewButton.isEnabled = isEnabled
     }
 
+    private func updateActiveDeviceDetectionControlsEnabled() {
+        let isEnabled = activeDeviceDetectionCheckbox.state == .on
+        triggerEdgeCheckboxes.forEach { $0.isEnabled = isEnabled }
+    }
+
     private func beginSettingsPreview() {
         window?.level = NSWindow.Level(
             rawValue: NSWindow.Level.screenSaver.rawValue + 1
@@ -844,6 +1016,11 @@ final class MainWindowController: NSWindowController {
     @objc private func transparencyChanged() {
         updateTransparencyValue()
         notifyOverlaySettingsChanged()
+    }
+
+    @objc private func activeDeviceDetectionSettingsChanged() {
+        updateActiveDeviceDetectionControlsEnabled()
+        notifyActiveDeviceDetectionSettingsChanged()
     }
 
     @objc private func glassChanged() {
